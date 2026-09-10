@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}👥 Users &amp; Roles — ASISTEM{% endblock %}
+{% block content %}
+
+<section class="hero">
+  <div>
+    <h2>👥 Users &amp; Roles</h2>
+    <p class="muted">
+      Manage who can access
+      <strong>{{ active_company.display_name if active_company else 'this company' }}</strong>
+      on ASISTEM.
+      Each user has a <strong>role</strong> (Admin or Staff) and an independent password.
+    </p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('manage_companies_get') }}">🏢 Companies</a>
+</section>
+
+<section class="stats">
+  <div class="stat-card">
+    <div class="stat-label">Total Users</div>
+    <div class="stat-value">{{ users_count }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Admins</div>
+    <div class="stat-value">{{ users | selectattr('role', 'equalto', 'admin') | list | length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Staff</div>
+    <div class="stat-value">{{ users | selectattr('role', 'equalto', 'staff') | list | length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Disabled Accounts</div>
+    <div class="stat-value">{{ users | rejectattr('is_active') | list | length if users else 0 }}</div>
+  </div>
+</section>
+
+{# ================ Create new user card ================ #}
+<div class="create-user-card">
+  <h3>➕ Create New User</h3>
+  <form method="post" action="{{ url_for('users_create_post') }}" class="create-user-grid">
+    <div class="field">
+      <label>Full Name</label>
+      <input name="full_name" placeholder="e.g. Sarah Johnson" />
+    </div>
+    <div class="field">
+      <label>Username *</label>
+      <input name="username" required autocomplete="off" placeholder="e.g. sarah" />
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input name="email" type="email" placeholder="sarah@example.com" />
+    </div>
+    <div class="field">
+      <label>Password * (min 8 chars)</label>
+      <input name="password" type="password" required minlength="8" placeholder="••••••••" />
+    </div>
+    <div class="field">
+      <label>Confirm Password *</label>
+      <input name="password_confirm" type="password" required minlength="8" placeholder="••••••••" />
+    </div>
+    <div class="field">
+      <label>Role *</label>
+      <select name="role" required>
+        <option value="staff" selected>👤 Staff — day-to-day invoices, reports</option>
+        <option value="admin">👑 Admin — full access + user management</option>
+      </select>
+    </div>
+    <div class="create-user-actions">
+      <button type="submit" class="btn btn-primary">✨ Create User</button>
+    </div>
+  </form>
+</div>
+
+{# ================ Users table ================ #}
+<div class="card">
+  <div class="section-title mb">
+    <h3>📋 Users List</h3>
+    <p class="muted small">
+      Admins can create users, reset passwords, disable accounts, and remove users.
+      A user can only belong to <strong>one company</strong> (the one you're currently working in).
+    </p>
+  </div>
+
+  {% if users %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:40px;">#</th>
+            <th>User</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Last Login</th>
+            <th>Created</th>
+            <th style="width:300px; text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          {% set is_self = (current_user and current_user.username and (current_user.username | lower) == (u.username or '' | lower)) %}
+          {% set is_active = u.is_active if u.is_active is defined else True %}
+          <tr>
+            <td><span class="muted">{{ loop.index }}</span></td>
+            <td>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:32px;height:32px;border-radius:8px;
+                     background: linear-gradient(135deg, {{ '#6366f1, #8b5cf6' if u.role == 'admin' else '#10b981, #06b6d4' }});
+                     color:#fff;font-weight:700;font-size:12px;
+                     display:flex;align-items:center;justify-content:center;">
+                  {{ (u.full_name or u.username or 'U') | truncate(2, True, '') | upper }}
+                </div>
+                <div>
+                  <div style="font-weight:700; color:var(--ink);">
+                    {{ u.full_name or u.username }}
+                    {% if is_self %}<span class="muted" style="font-weight:500; font-size:12px;">(You)</span>{% endif %}
+                  </div>
+                  <div class="muted" style="font-size:12px;">ID: {{ u.id or '—' }}</div>
+                </div>
+              </div>
+            </td>
+            <td class="mono" style="font-size:13px;">
+              <code style="background:#F1F5F9; padding:2px 6px; border-radius:5px;">{{ u.username }}</code>
+            </td>
+            <td class="muted" style="font-size:13px;">{{ u.email or '—' }}</td>
+            <td>
+              <div class="user-role-inline">
+                {% if u.role == 'admin' %}
+                  <span class="role-badge role-admin">👑 ADMIN</span>
+                {% else %}
+                  <span class="role-badge role-staff">👤 STAFF</span>
+                {% endif %}
+              </div>
+            </td>
+            <td>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="status-dot {{ 'active' if is_active else 'disabled' }}"></span>
+                {% if is_active %}
+                  <span class="role-badge role-active">ACTIVE</span>
+                {% else %}
+                  <span class="role-badge role-disabled">DISABLED</span>
+                {% endif %}
+              </div>
+            </td>
+            <td class="muted" style="font-size:12.5px;">
+              {{ u.last_login_at or u.last_login or 'Never' }}
+            </td>
+            <td class="muted" style="font-size:12.5px;">
+              {{ u.created_at or u.updated_at or '—' }}
+            </td>
+            <td style="text-align:right;">
+              <div class="actions triple" style="justify-content:flex-end;">
+                {# Reset password (details popover) #}
+                <details class="inline-edit">
+                  <summary class="btn mini btn-ghost" title="Reset password for this user">
+                    🔑 Reset PW
+                  </summary>
+                  <form method="post"
+                        action="{{ url_for('users_reset_password_post', username=u.username) }}"
+                        class="edit-popover" onsubmit="return confirm('Reset password for user &quot;{{ u.username }}&quot;?');">
+                    <div class="field">
+                      <label>New Password (min 8 chars)</label>
+                      <input name="new_password" type="password" minlength="8"
+                             placeholder="Leave blank → auto-generate 10 chars" />
+                    </div>
+                    <div class="field">
+                      <label>Confirm New Password</label>
+                      <input name="new_password_confirm" type="password" minlength="8" placeholder="Re-type (optional)" />
+                    </div>
+                    <p class="muted" style="font-size:11.5px; margin:2px 0 6px;">
+                      ⚡ Leave both blank to auto-generate a strong 10-character temporary password (will appear in the green flash banner after submit).
+                    </p>
+                    <button type="submit" class="btn btn-primary" style="width:100%;">🔑 Apply New Password</button>
+                  </form>
+                </details>
+
+                {# Toggle active / disabled #}
+                <form method="post"
+                      action="{{ url_for('users_toggle_active_post', username=u.username) }}"
+                      onsubmit="return {{ 'false' if is_self else "confirm('Toggle account status for user \\'%s\\'? Will %s their ability to log in.' | format(u.username, 'DISABLE' if is_active else 'RE-ENABLE'))" }};"
+                      style="display:inline;">
+                  <button type="submit"
+                          class="btn mini {{ 'btn-warn' if is_active else 'btn-success' }}"
+                          title="{{ 'Disable — user cannot log in' if is_active else 'Re-enable — user can log in again' }}"
+                          {{ 'disabled style="opacity:.45;cursor:not-allowed;"' if is_self else '' }}>
+                    {{ '🚫 Disable' if is_active else '✅ Enable' }}
+                  </button>
+                </form>
+
+                {# Delete (with confirm, including self-delete block) #}
+                <form method="post"
+                      action="{{ url_for('users_delete_post', username=u.username) }}"
+                      onsubmit="return {{ 'false' if is_self else "confirm('PERMANENTLY delete user \\'%s\\'? This cannot be undone. Their past actions stay in the audit trail.' | format(u.username))" }};"
+                      style="display:inline;">
+                  <button type="submit"
+                          class="btn mini btn-danger"
+                          title="Permanently delete user"
+                          {{ 'disabled style="opacity:.45;cursor:not-allowed;"' if is_self else '' }}>
+                    🗑️ Delete
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty">
+      <h3>⚠️ No users yet</h3>
+      <p class="muted">Create at least one Staff user above so your team can log in and run day-to-day operations.</p>
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}💼 Clients — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>👤 Clients CRM</h2>
+    <p class="muted">Customer directory built from invoice history for active company.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-ghost" href="{{ url_for('quotations_view') }}">📝 Quotations</a>
+    <a class="btn btn-primary" href="{{ url_for('invoice_new_form') }}">➕ New Invoice</a>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Clients</div><div class="stat-value">{{ count }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Client Revenue (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_revenue) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Avg / Client (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_revenue / count if count else 0) }}</div></div>
+</section>
+
+<div class="card">
+  {% if clients %}
+  <div class="table-wrap">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Client Name</th>
+          <th>TRN</th>
+          <th>Emirate</th>
+          <th class="num">Invoices</th>
+          <th class="num">Total Spent (AED)</th>
+          <th>Last Invoice</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clients %}
+        <tr>
+          <td><strong>{{ c.name }}</strong></td>
+          <td class="mono">{{ c.trn or '—' }}</td>
+          <td>{{ c.emirate or '—' }}</td>
+          <td class="num">{{ c.total_invoices or 0 }}</td>
+          <td class="num">{{ "{:,.2f}".format(c.total_spent or 0) }}</td>
+          <td>{{ c.last_invoice or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No clients yet</h3>
+      <p class="muted">Create invoices to build the client directory automatically.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

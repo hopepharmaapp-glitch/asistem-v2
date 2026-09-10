@@ -1,0 +1,64 @@
+
+# ========= ASISTEM SUPER-STRONG GITIGNORE (whitelist approach) =========
+
+# First: IGNORE EVERYTHING by default. Deny-list failed (temp folders kept slipping through).
+
+# We'll EXPLICITLY WHITELIST only the 60-80 source files you actually need for Vercel deploy.
+*
+
+# --- WHITELIST: allow folders we EXPLICITLY want (reverse the global ignore for each) ---
+!api/
+!api/**
+!templates/
+!templates/**
+!static/
+!static/**
+
+# --- WHITELIST: specific individual source/config files at the repo ROOT ---
+!web_app.py
+!hope_pharma_complete.py
+!balance_manager.py
+!cost_center_manager.py
+!cost_center_ui.py
+!employee_manager.py
+!gaap_reporting_dashboard.py
+!inventory_report.py
+!inventory_system.py
+!ledger_service.py
+!marketplace_manager.py
+!quotation_manager.py
+!report_engine.py
+!temperature_log.py
+!transaction_manager.py
+!warehouse_extension.py
+!ui_undo.py
+!invoice_app.py
+!upload_all_data_to_supabase.py
+!vercel.json
+!requirements.txt
+!pyproject.toml
+!HOW_TO_BUILD_ON_WINDOWS.txt
+!build_mac_app.sh
+!build_windows_debug.bat
+!build_windows_final.bat
+!build_windows_onefile.bat
+!build_windows_robust.bat
+!.gitignore
+!HopePharma.spec
+!AssistemLogo.png
+!_dbg_full_web_smoke.py
+
+# --- ALWAYS-BLOCK (even if inside whitelisted path by accident, we don't want them) ---
+__pycache__/
+*.py[cod]
+.DS_Store
+.tmp.driveupload/
+backups/
+build/
+dist/
+companies/
+HopePharmaInvoices/
+EmpSalaries/
+FinancialReports/
+InventoryReports/
+.vercel

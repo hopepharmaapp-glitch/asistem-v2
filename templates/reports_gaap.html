@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}📊 GAAP Reports — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>📊 GAAP Financial Reports — {{ month_name }}</h2>
+    <p class="muted">Period <strong>{{ start }}</strong> to <strong>{{ end }}</strong> · Active company filters applied. Source: single-source <code>compute_financials()</code>.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-ghost" href="{{ url_for('reports_tb') }}">📈 Trial Balance</a>
+    {% if is_admin %}
+    <form method="post" action="{{ url_for('reports_batch_pdf') }}" style="display:inline">
+      <input type="hidden" name="year" value="{{ year }}" />
+      <input type="hidden" name="month" value="{{ month }}" />
+      <button class="btn btn-primary" type="submit">📦 Batch Export ZIP</button>
+    </form>
+    {% else %}
+    <span class="cc-label" title="ZIP CSV export is admin-only per OQ-R1 policy">🔒 ZIP CSV = admin-only</span>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card form-card mb">
+  <form method="get" action="{{ url_for('reports_gaap') }}" class="form-inline">
+    <label class="inline-field"><span>Year</span>
+      <select name="year">
+        {% for y in years %}<option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="inline-field"><span>Month</span>
+      <select name="month">
+        {% for m_idx, m_name in months %}<option value="{{ m_idx }}" {% if m_idx==month %}selected{% endif %}>{{ m_name }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-primary" type="submit">🔄 Apply</button>
+  </form>
+  <p class="muted small mt">Source: {{ invoices_n }} invoices · {{ purchases_n }} purchases in period.
+    {% if fin and fin.salaries_total != None %}Payroll: AED {{ "{:,.2f}".format(fin.salaries_total) }} · {% endif %}
+    EBIT: <strong>AED {{ "{:,.2f}".format(fin.ebit if fin and fin.ebit != None else (gross_profit - expenses)) }}</strong>
+  </p>
+</section>
+
+<section class="grid-cols-3">
+  <div class="card report-card">
+    <div class="section-title mb"><h3>💵 Profit &amp; Loss</h3></div>
+    <div class="report-line"><span>Revenue (Sales)</span><strong class="num pos">{{ "{:,.2f}".format(revenue) }}</strong></div>
+    <div class="report-line"><span>Less: COGS</span><strong class="num neg">{{ "{:,.2f}".format(cogs) }}</strong></div>
+    <div class="report-line subtotal"><span>Gross Profit</span><strong class="num">{{ "{:,.2f}".format(gross_profit) }}</strong></div>
+    <div class="report-line"><span>Less: Operating Expenses</span><strong class="num neg">{{ "{:,.2f}".format(expenses) }}</strong></div>
+    <div class="report-line grand"><span>Net Profit / (Loss)</span><strong class="num {{ 'pos' if net_profit >= 0 else 'neg' }}">{{ "{:,.2f}".format(net_profit) }}</strong></div>
+  </div>
+
+  <div class="card report-card">
+    <div class="section-title mb"><h3>🏦 Balance Sheet (Snapshot)</h3></div>
+    <div class="report-section-title">Assets</div>
+    <div class="report-line"><span>Current Assets (derived)</span><strong class="num">{{ "{:,.2f}".format(total_assets) }}</strong></div>
+    <div class="report-line subtotal"><span>Total Assets</span><strong class="num">{{ "{:,.2f}".format(total_assets) }}</strong></div>
+    <div class="report-section-title">Liabilities</div>
+    <div class="report-line"><span>Current Liabilities (derived)</span><strong class="num">{{ "{:,.2f}".format(total_liabilities) }}</strong></div>
+    <div class="report-line subtotal"><span>Total Liabilities</span><strong class="num">{{ "{:,.2f}".format(total_liabilities) }}</strong></div>
+    <div class="report-section-title">Equity</div>
+    <div class="report-line"><span>Retained Earnings (period)</span><strong class="num {{ 'pos' if equity >= 0 else 'neg' }}">{{ "{:,.2f}".format(equity) }}</strong></div>
+    <div class="report-line grand"><span>Total Liab. + Equity</span><strong class="num">{{ "{:,.2f}".format(total_liabilities + equity) }}</strong></div>
+  </div>
+
+  <div class="card report-card">
+    <div class="section-title mb"><h3>💸 Cash Flow (Operating)</h3></div>
+    <div class="report-line"><span>Cash In (customer pmts)</span><strong class="num pos">{{ "{:,.2f}".format(operating_cash_in) }}</strong></div>
+    <div class="report-line"><span>Cash Out (supplier pmts)</span><strong class="num neg">{{ "{:,.2f}".format(operating_cash_out) }}</strong></div>
+    <div class="report-line grand"><span>Net Operating Cash Flow</span><strong class="num {{ 'pos' if net_operating_cf >= 0 else 'neg' }}">{{ "{:,.2f}".format(net_operating_cf) }}</strong></div>
+    <p class="muted small mt">Indirect method proxy — only operating activities shown.</p>
+  </div>
+</section>
+
+<section class="card mt">
+  <div class="section-title mb"><h3>📋 P&amp;L by Cost Center — {{ month_name }}</h3>
+    <p class="pl-hint">All totals come from the financial aggregator for the selected period.</p>
+  </div>
+  {% if cc_rows %}
+  <div class="table-wrap">
+    <table class="pl-table">
+      <thead>
+        <tr>
+          <th>Cost Center</th>
+          <th>Invoices</th>
+          <th class="num">Revenue</th>
+          <th class="num">COGS / Direct</th>
+          <th class="num">Gross Profit</th>
+          <th class="num">GM%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set tr = namespace(v=0.0) %} {% set tc = namespace(v=0.0) %}
+        {% for r in cc_rows %}
+          {% set tr.v = tr.v + r.revenue %} {% set tc.v = tc.v + r.cogs %}
+          {% set cls = 'pos' if r.gp >= 0 else 'neg' %}
+        <tr class="gp {{ cls }}">
+          <td><strong>{{ r.label }}</strong></td>
+          <td>{{ r.inv_count or 0 }}</td>
+          <td class="num">{{ "{:,.2f}".format(r.revenue) }}</td>
+          <td class="num">{{ "{:,.2f}".format(r.cogs) }}</td>
+          <td class="num">{{ "{:,.2f}".format(r.gp) }}</td>
+          <td class="num gm">{{ "{:.2f}".format(r.gm_pct) }}%</td>
+        </tr>
+        {% endfor %}
+        {% set tgp = tr.v - tc.v %}
+        {% set tgm = (tgp / tr.v * 100.0) if tr.v > 0.0001 else 0.0 %}
+        <tr class="tot">
+          <td>TOTAL</td>
+          <td>{{ invoices_n }}</td>
+          <td class="num">{{ "{:,.2f}".format(tr.v) }}</td>
+          <td class="num">{{ "{:,.2f}".format(tc.v) }}</td>
+          <td class="num {{ 'positive' if tgp >= 0 else 'owed' }}">{{ "{:,.2f}".format(tgp) }}</td>
+          <td class="num gm">{{ "{:.2f}".format(tgm) }}%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><h3>No cost-center data in this period</h3><p class="muted">Save invoices with cost centers to populate the breakdown.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

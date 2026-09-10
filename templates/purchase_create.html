@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}➕ New Purchase — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>➕ Record New Purchase</h2>
+    <p class="muted">Supplier invoice / expense entry — stamped to active company.</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('purchases_list') }}">← Back to Purchases</a>
+</section>
+
+<section class="card form-card">
+  <form method="post" action="{{ url_for('purchase_create_post') }}" class="form-stack">
+    <input type="hidden" name="purchase_id" value="{{ next_id }}" />
+    <div class="form-grid">
+      <div class="field"><label>Purchase ID (auto)</label><input class="read-only mono" value="{{ next_id }}" readonly /></div>
+      <div class="field"><label>Date</label><input type="date" name="date" value="{{ today }}" required /></div>
+      <div class="field full"><label>Description *</label><input name="description" required placeholder="e.g. Office supplies, courier shipment, medicine stock order" /></div>
+      <div class="field"><label>Supplier</label><input name="supplier" placeholder="Supplier / vendor name" /></div>
+      <div class="field"><label>Category</label>
+        <select name="category">
+          <option>General</option><option>Inventory</option><option>Marketing</option>
+          <option>Salaries</option><option>Rent</option><option>Utilities</option>
+          <option>Logistics</option><option>Software</option><option>Travel</option><option>Other</option>
+        </select>
+      </div>
+      <div class="field"><label>Amount (AED) *</label><input type="number" step="0.01" min="0" name="amount" required placeholder="0.00" /></div>
+      <div class="field"><label>Payment Account</label>
+        <select name="account">
+          <option>Cash</option><option>Emirates NBD</option><option>ADCB</option>
+          <option>DIB</option><option>Mashreq</option><option>Check</option><option>Card</option>
+        </select>
+      </div>
+      <div class="field full"><label>Notes</label><textarea name="notes" rows="3" placeholder="Optional notes, PO reference, etc."></textarea></div>
+    </div>
+    <div class="form-actions">
+      <a class="btn btn-ghost" href="{{ url_for('purchases_list') }}">Cancel</a>
+      <button class="btn btn-primary" type="submit">💾 Save Purchase (Pending)</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

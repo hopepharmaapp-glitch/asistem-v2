@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Active Invoices — HopePharma{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>Active Invoices</h2>
+    <p class="muted">All non-deleted invoices. Click the green ➕ New Invoice button to create one — the system auto-fills the lowest missing <strong>HPMT####</strong> number (gaps from deleted invoices are re-used).</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('create_form') }}">➕ New Invoice (Auto HPMT Number)</a>
+</section>
+
+<section class="stats">
+  <div class="stat-card">
+    <div class="stat-label">Active Invoices</div>
+    <div class="stat-value">{{ invoices|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Amount (AED)</div>
+    <div class="stat-value">{{ "{:,.2f}".format(total_amount) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Paid (AED)</div>
+    <div class="stat-value">{{ "{:,.2f}".format(total_paid) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Outstanding (AED)</div>
+    <div class="stat-value owed">{{ "{:,.2f}".format(total_owed) }}</div>
+  </div>
+</section>
+
+<div class="card">
+  {% if invoices %}
+  <div class="table-wrap">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Client</th>
+          <th>Date</th>
+          <th>Due</th>
+          <th class="num">Total (AED)</th>
+          <th class="num">Paid (AED)</th>
+          <th class="num">Balance (AED)</th>
+          <th>Status</th>
+          <th class="actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+          {% set t = inv.grand_total or 0 %}
+          {% set p = inv.total_paid or 0 %}
+          {% set bal = t - p %}
+          {% if p >= t and t > 0 %}
+            {% set status = "Paid" %}
+            {% set cls = "status-paid" %}
+          {% elif p > 0 %}
+            {% set status = "Partial" %}
+            {% set cls = "status-partial" %}
+          {% else %}
+            {% set status = "Not Paid" %}
+            {% set cls = "status-unpaid" %}
+          {% endif %}
+        <tr>
+          <td class="mono"><strong>{{ inv.invoice_id }}</strong></td>
+          <td>{{ inv.client_name or "—" }}</td>
+          <td>{{ inv.date or "—" }}</td>
+          <td>{{ inv.due_date or "—" }}</td>
+          <td class="num">{{ "{:,.2f}".format(t) }}</td>
+          <td class="num">{{ "{:,.2f}".format(p) }}</td>
+          <td class="num {{ 'owed' if bal > 0 else '' }}">{{ "{:,.2f}".format(bal) }}</td>
+          <td><span class="status-chip {{ cls }}">{{ status }}</span></td>
+          <td class="actions">
+            <form method="post" action="{{ url_for('delete_invoice', invoice_id=inv.invoice_id) }}" onsubmit="return confirm('Move {{ inv.invoice_id }} to Deleted Archive? Its HPMT number will become available for the NEXT new invoice.');">
+              <button class="btn btn-ghost danger" type="submit">🗑 Archive</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No active invoices yet</h3>
+      <p class="muted">Click ➕ New Invoice above — your first invoice will be <strong>HPMT0001</strong>.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

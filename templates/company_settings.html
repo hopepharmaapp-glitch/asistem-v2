@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}⚙️ Company Settings — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>⚙️ Company Profile</h2>
+    <p class="muted">
+      {% if is_admin %}
+        Configure legal identity, branding, banking and invoicing defaults for
+        <strong>{{ profile.display_name if profile.display_name else profile.name }}.</strong>
+      {% else %}
+        View company profile for <strong>{{ profile.display_name if profile.display_name else profile.name }}</strong>
+        — contact an admin to make changes.
+      {% endif %}
+    </p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('dashboard') }}">← Dashboard</a>
+</section>
+
+<div class="card form-card">
+  {% if not is_admin %}
+  <div class="alert" style="background:#EFF6FF;border:1px solid #BFDBFE;color:#1E40AF;">
+    👤 You are viewing as <strong>STAFF</strong> — profile fields are read-only. Contact an admin to make edits.
+  </div>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('company_settings_post') }}" id="settingsForm"
+        {% if not is_admin %}onsubmit="event.preventDefault();"{% endif %}>
+    <!-- Section 1: Legal Details -->
+    <div class="section-title"><h3>🏛️ 1. Legal &amp; Identity Details</h3></div>
+    <div class="form-grid">
+      <div class="field"><label>Display Name</label>
+        <input type="text" name="display_name" value="{{ profile.display_name or profile.name or '' }}" {% if not is_admin %}readonly{% endif %} required />
+      </div>
+      <div class="field"><label>Legal Entity Name</label>
+        <input type="text" name="legal_name" value="{{ profile.legal_name or profile.name or '' }}" {% if not is_admin %}readonly{% endif %} />
+      </div>
+      <div class="field"><label>Trade License Name</label>
+        <input type="text" name="name" value="{{ profile.name or '' }}" {% if not is_admin %}readonly{% endif %} />
+      </div>
+      <div class="field"><label>Tax Registration Number (TRN)</label>
+        <input type="text" name="trn" maxlength="15" pattern="\d{15}" title="Exactly 15 digits"
+               value="{{ profile.trn or '' }}" {% if not is_admin %}readonly{% endif %} placeholder="15-digit UAE TRN" />
+      </div>
+      <div class="field"><label>Emirate / Location</label>
+        <select name="emirate" {% if not is_admin %}disabled{% endif %}>
+          {% set em = profile.emirate or 'Dubai' %}
+          {% for opt in ['Dubai','Abu Dhabi','Sharjah','Ajman','Umm Al Quwain','Ras Al Khaimah','Fujairah'] %}
+          <option value="{{ opt }}"{% if em == opt %} selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field"><label>Currency</label>
+        <select name="currency" {% if not is_admin %}disabled{% endif %}>
+          {% set cur = profile.currency or 'AED' %}
+          {% for c in ['AED','USD','EUR','GBP','SAR','INR','PKR','EGP','JPY','CNY'] %}
+          <option value="{{ c }}"{% if cur == c %} selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field span-2"><label>Registered Address</label>
+        <textarea name="address" rows="2" {% if not is_admin %}readonly{% endif %} placeholder="Street / PO Box">{{ profile.address or '' }}</textarea>
+      </div>
+      <div class="field"><label>Phone</label>
+        <input type="tel" name="phone" value="{{ profile.phone or '' }}" {% if not is_admin %}readonly{% endif %} />
+      </div>
+      <div class="field"><label>Company Email</label>
+        <input type="email" name="email" value="{{ profile.email or '' }}" {% if not is_admin %}readonly{% endif %} />
+      </div>
+      <div class="field"><label>Website</label>
+        <input type="url" name="website" value="{{ profile.website or '' }}" {% if not is_admin %}readonly{% endif %} placeholder="https://..." />
+      </div>
+      <div class="field"><label>Default VAT Rate (%)</label>
+        <input type="number" name="vat_rate" min="0" max="100" step="0.5"
+               value="{{ profile.vat_rate if profile.vat_rate != None else 5 }}" {% if not is_admin %}readonly{% endif %} />
+      </div>
+    </div>
+
+    <!-- Section 2: Branding images -->
+    <div class="section-title mt"><h3>🖼️ 2. Branding &amp; Document Assets</h3><p class="muted small">All images auto-resized to 400px max and saved as PNG. Used on PDFs &amp; letterheads.</p></div>
+    <div class="form-grid">
+      <div class="field">
+        <label>Company Logo</label>
+        <div class="img-row">
+          {% if profile.company_logo_base64 %}
+          <img class="img-thumb" src="{{ profile.company_logo_base64 }}" alt="logo" />
+          {% else %}
+          <div class="img-ph">No logo</div>
+          {% endif %}
+          {% if is_admin %}
+          <div class="img-ctl">
+            <input type="file" name="logo_image" accept="image/*" />
+            <label class="chk"><input type="checkbox" name="clear_logo" /> Clear existing logo</label>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="field">
+        <label>Authorised Signatory Signature</label>
+        <div class="img-row">
+          {% if profile.signature_image_base64 %}
+          <img class="img-thumb" src="{{ profile.signature_image_base64 }}" alt="signature" />
+          {% else %}
+          <div class="img-ph">No signature</div>
+          {% endif %}
+          {% if is_admin %}
+          <div class="img-ctl">
+            <input type="file" name="signature_image" accept="image/*" />
+            <label class="chk"><input type="checkbox" name="clear_signature" /> Clear signature</label>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="field">
+        <label>Company Seal / Stamp</label>
+        <div class="img-row">
+          {% if profile.stamp_image_base64 %}
+          <img class="img-thumb" src="{{ profile.stamp_image_base64 }}" alt="stamp" />
+          {% else %}
+          <div class="img-ph">No stamp</div>
+          {% endif %}
+          {% if is_admin %}
+          <div class="img-ctl">
+            <input type="file" name="stamp_image" accept="image/*" />
+            <label class="chk"><input type="checkbox" name="clear_stamp" /> Clear stamp</label>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Banking -->
+    <div class="section-title mt"><h3>🏦 3. Banking &amp; Payment Instructions</h3><p class="muted small">Shown at the footer of every PDF invoice for customer reference.</p></div>
+    <div class="form-grid">
+      <div class="field"><label>Bank Name</label>
+        <input type="text" name="bank_name" value="{{ profile.bank_name or '' }}" {% if not is_admin %}readonly{% endif %} placeholder="e.g. First Abu Dhabi Bank" />
+      </div>
+      <div class="field"><label>Branch</label>
+        <input type="text" name="bank_branch" value="{{ profile.bank_branch or '' }}" {% if not is_admin %}readonly{% endif %} />
+      </div>
+      <div class="field"><label>Account Number</label>
+        <input type="text" name="bank_account_no" value="{{ profile.bank_account_no or '' }}" {% if not is_admin %}readonly{% endif %} />
+      </div>
+      <div class="field"><label>IBAN</label>
+        <input type="text" name="bank_iban" value="{{ profile.bank_iban or '' }}" {% if not is_admin %}readonly{% endif %} placeholder="AE24..." />
+      </div>
+      <div class="field span-2"><label>SWIFT / BIC</label>
+        <input type="text" name="bank_swift" value="{{ profile.bank_swift or '' }}" {% if not is_admin %}readonly{% endif %} placeholder="8 or 11 characters" />
+      </div>
+    </div>
+
+    <!-- Section 4: Invoicing -->
+    <div class="section-title mt"><h3>🧾 4. Invoicing Defaults</h3><p class="muted small">Prefix MUST be exactly 4 uppercase letters/digits (e.g. HPMT).</p></div>
+    <div class="form-grid">
+      <div class="field"><label>Invoice Prefix (4 chars)</label>
+        <input type="text" name="prefix" maxlength="4" pattern="[A-Z0-9]{4}"
+               value="{{ profile.prefix or '' }}" {% if not is_admin %}readonly{% endif %}
+               {% if is_admin %}oninput="this.value = this.value.toUpperCase();mirrorShort()"{% endif %} placeholder="HPMT" />
+      </div>
+      <div class="field"><label>Short Code (mirrors prefix)</label>
+        <input type="text" name="short_code" id="shortCode" maxlength="8"
+               value="{{ profile.short_code or profile.prefix or '' }}" {% if not is_admin %}readonly{% endif %} />
+      </div>
+      <div class="field span-2"><label>PDF Footer — Thank-you / Terms note</label>
+        <textarea name="pdf_footer_thank_you" rows="2" {% if not is_admin %}readonly{% endif %}
+                  placeholder="Thank you for your valuable business. Payment to the above bank account.">{{ profile.pdf_footer_thank_you or 'Thank you for your valued business. Payment via bank transfer to the account above.' }}</textarea>
+      </div>
+    </div>
+
+    {% if is_admin %}
+    <div class="form-actions">
+      <a class="btn btn-ghost" href="{{ url_for('dashboard') }}">Cancel</a>
+      <button class="btn btn-primary" type="submit">💾 Save Company Profile</button>
+    </div>
+    {% endif %}
+  </form>
+</div>
+
+<script>
+  function mirrorShort() {
+    const pre = document.querySelector('input[name="prefix"]');
+    const sc = document.getElementById('shortCode');
+    if (pre && sc && !sc.dataset.touched) sc.value = pre.value;
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const sc = document.getElementById('shortCode');
+    if (sc) {
+      sc.addEventListener('input', () => sc.dataset.touched = '1');
+    }
+  });
+</script>
+{% endblock %}

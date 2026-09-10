@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}👥 Employee Manager — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>👥 Employee Manager</h2>
+    <p class="muted">Staff roster for active company. Payroll records managed under 💰 Salaries.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-ghost" href="{{ url_for('salaries_list') }}">💰 Salaries</a>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Headcount</div><div class="stat-value">{{ employees|length }}</div></div>
+  <div class="stat-card"><div class="stat-label">Monthly Payroll (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_salary) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Active</div><div class="stat-value">{{ employees|selectattr('status','equalto','Active')|list|length if employees else 0 }}</div></div>
+</section>
+
+<section class="grid-cols-2">
+  <div class="card">
+    <div class="section-title mb"><h3>➕ Add Employee</h3></div>
+    <form method="post" action="{{ url_for('employee_create_post') }}" class="form-stack">
+      <div class="form-grid">
+        <div class="field full"><label>Full Name *</label><input name="name" required placeholder="e.g. Ahmed Ali" /></div>
+        <div class="field"><label>Position</label><input name="position" placeholder="e.g. Sales Executive" /></div>
+        <div class="field"><label>Department</label>
+          <select name="department">
+            <option>—</option><option>Sales</option><option>Operations</option><option>Warehouse</option>
+            <option>Finance</option><option>HR</option><option>Marketing</option><option>QA</option>
+            <option>Management</option><option>Drivers</option><option>Other</option>
+          </select>
+        </div>
+        <div class="field"><label>Monthly Salary (AED)</label><input type="number" step="0.01" min="0" name="monthly_salary" placeholder="0.00" /></div>
+        <div class="field"><label>Joining Date</label><input type="date" name="joining_date" value="{{ today }}" /></div>
+        <div class="field"><label>Phone</label><input name="phone" placeholder="+971..." /></div>
+        <div class="field"><label>Email</label><input type="email" name="email" placeholder="name@company.ae" /></div>
+        <div class="field full"><label>Notes</label><textarea name="notes" rows="2" placeholder="Optional"></textarea></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">💾 Add Employee</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="section-title mb"><h3>📋 Roster</h3><p class="muted small">Total: {{ employees|length }}</p></div>
+    {% if employees %}
+      <div class="table-wrap"><table class="invoice-table compact">
+        <thead><tr>
+          <th>Name</th><th>Role</th><th>Dept</th>
+          <th class="num">Salary</th><th>Joined</th><th class="actions">Actions</th>
+        </tr></thead>
+        <tbody>
+          {% for e in employees %}
+          <tr>
+            <td><strong>{{ e.name }}</strong>
+              <div class="muted small">{{ e.phone or '' }}{% if e.email %} · {{ e.email }}{% endif %}</div>
+            </td>
+            <td>{{ e.position or '—' }}</td>
+            <td>{{ e.department or '—' }}</td>
+            <td class="num">{{ "{:,.2f}".format(e.monthly_salary or 0) }}</td>
+            <td>{{ e.joining_date or '—' }}</td>
+            <td class="actions dual">
+              <details class="inline-edit">
+                <summary class="btn btn-ghost mini">✏️ Edit</summary>
+                <form method="post" action="{{ url_for('employee_edit_post', emp_id=e.id) }}" class="edit-popover">
+                  <input type="hidden" name="_method" value="POST" />
+                  <div class="field"><label>Name</label><input name="name" value="{{ e.name }}" /></div>
+                  <div class="field"><label>Position</label><input name="position" value="{{ e.position or '' }}" /></div>
+                  <div class="field"><label>Dept</label><input name="department" value="{{ e.department or '' }}" /></div>
+                  <div class="field"><label>Salary</label><input type="number" step="0.01" name="monthly_salary" value="{{ e.monthly_salary or 0 }}" /></div>
+                  <div class="field"><label>Joined</label><input type="date" name="joining_date" value="{{ e.joining_date or today }}" /></div>
+                  <div class="field"><label>Phone</label><input name="phone" value="{{ e.phone or '' }}" /></div>
+                  <div class="field"><label>Email</label><input name="email" value="{{ e.email or '' }}" /></div>
+                  <div class="field"><label>Status</label>
+                    <select name="status">
+                      <option {% if e.status=='Active' %}selected{% endif %}>Active</option>
+                      <option {% if e.status=='Inactive' %}selected{% endif %}>Inactive</option>
+                      <option {% if e.status=='Resigned' %}selected{% endif %}>Resigned</option>
+                    </select>
+                  </div>
+                  <div class="form-actions">
+                    <button class="btn btn-primary mini" type="submit">Save</button>
+                  </div>
+                </form>
+              </details>
+              <form method="post" action="{{ url_for('employee_delete_post', emp_id=e.id) }}" onsubmit="return confirm('Delete employee {{ e.name }}?');">
+                <button class="btn btn-ghost danger mini" type="submit">🗑</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}
+      <div class="empty"><h3>No employees yet</h3><p class="muted">Use the form on the left to add staff.</p></div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

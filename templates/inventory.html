@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}📦 Inventory — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>📦 Inventory</h2>
+    <p class="muted">Product stock levels for active company. Low-stock (≤5) items flagged.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-ghost" href="{{ url_for('warehouse_view') }}">🏬 Warehouses</a>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">SKUs</div><div class="stat-value">{{ total_items }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Value (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_value) }}</div></div>
+  <div class="stat-card"><div class="stat-label">⚠️ Low Stock</div><div class="stat-value owed">{{ low_stock_n }}</div></div>
+</section>
+
+<div class="card">
+  {% if items %}
+  <div class="table-wrap">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Product Name</th>
+          <th>Category</th>
+          <th class="num">Qty</th>
+          <th class="num">Unit Cost (AED)</th>
+          <th class="num">Value (AED)</th>
+          <th>Stock Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in items %}
+          {% set q = i.qty|default(0) if i.qty is defined else 0 %}
+          {% set price = i.unit_price|default(0) if i.unit_price is defined else 0 %}
+          {% set val = q * price %}
+          {% if q <= 0 %}
+            {% set s, cls = "Out", "status-unpaid" %}
+          {% elif q <= 5 %}
+            {% set s, cls = "Low", "status-partial" %}
+          {% else %}
+            {% set s, cls = "OK", "status-paid" %}
+          {% endif %}
+        <tr>
+          <td class="mono">{{ i.sku or '—' }}</td>
+          <td><strong>{{ i.name or i.description or '—' }}</strong></td>
+          <td>{{ i.category or 'General' }}</td>
+          <td class="num {{ 'owed' if q <= 5 else '' }}">{{ q }}</td>
+          <td class="num">{{ "{:,.2f}".format(price) }}</td>
+          <td class="num">{{ "{:,.2f}".format(val) }}</td>
+          <td><span class="status-chip {{ cls }}">{{ s }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No inventory data</h3>
+      <p class="muted">Seed products in the desktop Inventory module to populate this view.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

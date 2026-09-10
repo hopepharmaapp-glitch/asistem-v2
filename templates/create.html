@@ -1,0 +1,434 @@
+{% extends "base.html" %}
+{% block title %}New Invoice — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>{% if editing %}✏️ Edit Invoice {{ editing.invoice_id }}{% else %}➕ Create New Invoice{% endif %}</h2>
+    <p class="muted">Next auto-calculated gap-fill number: <strong class="next-id-chip">{{ next_id }}</strong>.</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('invoices_list') }}">← Back to list</a>
+</section>
+
+<section class="card form-card">
+  <div id="formTopAlert" class="alert danger hidden"></div>
+
+  <form method="post" action="{{ url_for('create_invoice') }}" id="invForm">
+    <input type="hidden" name="invoice_id" value="{{ next_id }}" />
+
+    <div class="section-title">
+      <h3>📋 Invoice Type</h3>
+      <p class="muted small">Sales = tangible goods / inventory items. Service = hourly / flat-fee engagements.</p>
+    </div>
+
+    <div id="invoice-type-toggle" class="invoice-type-card">
+      <label class="type-option{% if not editing or editing.invoice_type != 'service' %} selected{% endif %}">
+        <input type="radio" name="invoice_type" value="sales" {% if not editing or editing.invoice_type != 'service' %}checked{% endif %} onchange="onInvoiceTypeChange('sales')" />
+        <div class="type-inner">
+          <div class="type-title">🧾 Sales Tax Invoice</div>
+          <div class="type-sub">Physical goods / inventory items</div>
+        </div>
+      </label>
+      <label class="type-option{% if editing and editing.invoice_type == 'service' %} selected{% endif %}">
+        <input type="radio" name="invoice_type" value="service" {% if editing and editing.invoice_type == 'service' %}checked{% endif %} onchange="onInvoiceTypeChange('service')" />
+        <div class="type-inner">
+          <div class="type-title">⚙️ Service Tax Invoice</div>
+          <div class="type-sub">Hourly services / engagements</div>
+        </div>
+      </label>
+    </div>
+
+    <div class="section-title mt">
+      <h3>👤 Client &amp; Metadata</h3>
+    </div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label>Invoice Number (auto-filled)</label>
+        <input type="text" value="{{ next_id }}" readonly class="read-only mono" />
+      </div>
+      <div class="field">
+        <label>Client Name *</label>
+        <input type="text" name="client_name" required placeholder="e.g. Al Ahli Hospital LLC" value="{{ editing.client_name if editing else '' }}" />
+      </div>
+      <div class="field">
+        <label>Client TRN (optional)</label>
+        <input type="text" name="client_trn" maxlength="15" placeholder="15-digit UAE TRN" value="{{ editing.client_trn if editing else '' }}" />
+      </div>
+      <div class="field">
+        <label>Client Emirate</label>
+        <select name="client_emirate">
+          {% set ce = editing.client_emirate if editing else 'Dubai' %}
+          <option value="Dubai"{% if ce == 'Dubai' %} selected{% endif %}>Dubai</option>
+          <option value="Abu Dhabi"{% if ce == 'Abu Dhabi' %} selected{% endif %}>Abu Dhabi</option>
+          <option value="Sharjah"{% if ce == 'Sharjah' %} selected{% endif %}>Sharjah</option>
+          <option value="Ajman"{% if ce == 'Ajman' %} selected{% endif %}>Ajman</option>
+          <option value="Umm Al Quwain"{% if ce == 'Umm Al Quwain' %} selected{% endif %}>Umm Al Quwain</option>
+          <option value="Ras Al Khaimah"{% if ce == 'Ras Al Khaimah' %} selected{% endif %}>Ras Al Khaimah</option>
+          <option value="Fujairah"{% if ce == 'Fujairah' %} selected{% endif %}>Fujairah</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Invoice Date *</label>
+        <input type="date" name="date" required value="{{ editing.date if editing else today }}" />
+      </div>
+      <div class="field">
+        <label>Due Date *</label>
+        <input type="date" name="due_date" required value="{{ editing.due_date if editing else today }}" />
+      </div>
+      <div class="field">
+        <label>Payment Terms</label>
+        {% set pt = editing.payment_terms if editing else 'Net 30' %}
+        <select name="payment_terms">
+          <option value="Cash"{% if pt == 'Cash' %} selected{% endif %}>Cash / On Receipt</option>
+          <option value="Net 15"{% if pt == 'Net 15' %} selected{% endif %}>Net 15</option>
+          <option value="Net 30"{% if pt == 'Net 30' %} selected{% endif %}>Net 30</option>
+          <option value="Net 60"{% if pt == 'Net 60' %} selected{% endif %}>Net 60</option>
+          <option value="Net 90"{% if pt == 'Net 90' %} selected{% endif %}>Net 90</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>VAT Rate (%)</label>
+        {% set tr = editing.tax_rate if editing else 5 %}
+        <input type="number" name="tax_rate" min="0" max="100" step="0.5" value="{{ tr }}" id="taxRateInput" />
+      </div>
+      <div class="field span-2">
+        <label>Header Cost Center <span class="req">*</span></label>
+        <select name="cost_center_id" id="headerCostCenter">
+          <option value="">— Select default cost center —</option>
+          {% for cc in cost_centers %}
+            {% set sel = (editing.cost_center_id if editing else default_cost_center_id) == cc.cost_center_id %}
+            <option value="{{ cc.cost_center_id }}"{% if sel %} selected{% endif %}>{{ cc.label }}</option>
+          {% endfor %}
+        </select>
+        <p class="muted small help">Default applied to any line item that does not override its cost center below.</p>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <h3>Line Items</h3>
+      <p class="muted small">Pick an item from the catalog to auto-fill price, VAT and default cost center.</p>
+    </div>
+
+    <div id="items" class="items-wrap">
+    </div>
+    <div class="items-toolbar">
+      <button type="button" class="btn btn-ghost" onclick="addItemRow()">➕ Add line item</button>
+    </div>
+
+    <div class="totals-card">
+      <div class="totals-row">
+        <span>Subtotal (excl. VAT)</span>
+        <strong><span id="subtotalView">0.00</span> AED</strong>
+      </div>
+      <div class="totals-row">
+        <span>VAT (<span id="taxRateView">5</span>%)</span>
+        <strong><span id="taxView">0.00</span> AED</strong>
+      </div>
+      <div class="totals-row grand">
+        <span>Grand Total (AED)</span>
+        <strong><span id="totalView">0.00</span> AED</strong>
+      </div>
+      <p class="muted small">Amount paid defaults to 0 (Not Paid). Record payments later from the main app if needed.</p>
+    </div>
+
+    <div class="section-title">
+      <h3>Notes (optional)</h3>
+    </div>
+    <div class="field">
+      <textarea name="notes" rows="3" placeholder="Any notes visible to customer (e.g. bank transfer details).">{{ editing.notes if editing else '' }}</textarea>
+    </div>
+
+    <div class="form-actions">
+      <a class="btn btn-ghost" href="{{ url_for('invoices_list') }}">Cancel</a>
+      <button class="btn btn-primary" type="submit" id="saveBtn">💾 {% if editing %}Update{% else %}Save{% endif %} Invoice</button>
+    </div>
+  </form>
+</section>
+
+<script>
+  const CC_OPTIONS = [
+    {% for cc in cost_centers %}
+      { id: "{{ cc.cost_center_id }}", label: {{ cc.label | tojson }} },
+    {% endfor %}
+  ];
+  const PRODUCTS = [
+    {% for p in products %}
+      {
+        code: {{ (p.product_code or p.sku or '') | tojson }},
+        name: {{ (p.name or p.description or p.title or '') | tojson }},
+        description: {{ (p.description or p.name or p.title or '') | tojson }},
+        unit_price: parseFloat("{{ p.unit_price or p.sale_price or p.price or 0 }}") || 0,
+        unit_cost: parseFloat("{{ p.unit_cost or p.cost_price or p.purchase_price or 0 }}") || 0,
+        vat_rate: parseFloat("{{ p.vat_rate or p.tax_rate or 5 }}") || 5,
+        default_cost_center_id: {{ (p.default_cost_center_id or 'cc_sales_goods') | tojson }},
+      },
+    {% endfor %}
+  ];
+  const SERVICE_PRODUCTS = [
+    {% for s in service_products %}
+      {
+        code: {{ (s.service_code or '') | tojson }},
+        name: {{ (s.title or s.name or s.description or '') | tojson }},
+        description: {{ (s.description or s.title or '') | tojson }},
+        unit_price: parseFloat("{{ s.default_bill_rate_hour or s.unit_price or 0 }}") || 0,
+        unit_cost: parseFloat("{{ s.default_internal_cost_hour or s.unit_cost or 0 }}") || 0,
+        vat_rate: parseFloat("{{ s.vat_rate or 5 }}") || 5,
+        default_cost_center_id: {{ (s.default_cost_center_id or 'cc_services_tech') | tojson }},
+      },
+    {% endfor %}
+  ];
+
+  const EDIT_ITEMS = {{ ((editing.items if editing else None) or []) | tojson }};
+  const EDIT_TYPE = {{ ((editing.invoice_type if editing else None) or 'sales') | tojson }};
+
+  let currentInvoiceType = (EDIT_TYPE === 'service') ? 'service' : 'sales';
+  let prefixUserEdited = false;
+
+  function getCatalog() {
+    return (currentInvoiceType === 'service') ? SERVICE_PRODUCTS : PRODUCTS;
+  }
+
+  function ccOptionHtml(selectedId) {
+    let out = '<option value="">— Inherit from header —</option>';
+    for (const cc of CC_OPTIONS) {
+      const sel = (cc.id === selectedId) ? ' selected' : '';
+      out += `<option value="${cc.id}"${sel}>${cc.label}</option>`;
+    }
+    return out;
+  }
+
+  function catalogOptionHtml(selectedCode) {
+    const cat = getCatalog();
+    let out = `<option value="">— Custom / not in catalog —</option>`;
+    for (const item of cat) {
+      const label = item.name + (item.code ? ` (${item.code})` : '');
+      const v = item.code || item.name;
+      const sel = (v === selectedCode) ? ' selected' : '';
+      out += `<option value="${escapeAttr(v)}" data-idx="${cat.indexOf(item)}"${sel}>${escapeHtml(label)}</option>`;
+    }
+    return out;
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  function onInvoiceTypeChange(t) {
+    if (t === currentInvoiceType) return;
+    currentInvoiceType = t;
+    document.querySelectorAll('.type-option').forEach(el => el.classList.remove('selected'));
+    const sel = document.querySelector(`.type-option input[value="${t}"]`);
+    if (sel) sel.closest('.type-option').classList.add('selected');
+    const rows = document.querySelectorAll('#items .item-row');
+    rows.forEach(r => {
+      const pick = r.querySelector('select.item-catalog');
+      if (pick) {
+        pick.innerHTML = catalogOptionHtml('');
+        pick.selectedIndex = 0;
+      }
+      const desc = r.querySelector('input[name="item_description"]');
+      if (desc && !desc.value.trim()) desc.value = '';
+      const up = r.querySelector('input[name="item_price"]');
+      if (up && parseFloat(up.value || 0) === 0) up.value = '0.00';
+      r.querySelector('input[name="item_unit_cost_hidden"]').value = '0';
+      r.querySelector('input[name="item_vat_hidden"]').value = '';
+      r.querySelector('input[name="item_cc_hidden"]').value = '';
+    });
+    recalcTotals();
+  }
+
+  function deleteRow(btn) {
+    const items = document.querySelectorAll('#items .item-row');
+    if (items.length <= 1) return;
+    btn.closest('.item-row').remove();
+    reindexRows();
+    recalcTotals();
+  }
+
+  function reindexRows() {
+    document.querySelectorAll('#items .item-row').forEach((r, i) => r.dataset.idx = i);
+  }
+
+  function addItemRow(prefill) {
+    const container = document.getElementById('items');
+    const idx = container.querySelectorAll('.item-row').length;
+    const p = prefill || {};
+    const headerCC = document.getElementById('headerCostCenter').value;
+    const lineCC = p.line_cost_center_id || p.cost_center_id || headerCC || '';
+    const tmpl = document.createElement('div');
+    tmpl.className = 'item-row';
+    tmpl.dataset.idx = idx;
+    const catCode = p.catalog_code || '';
+    tmpl.innerHTML = `
+      <div class="item-col grow-2">
+        <label>Catalog Pick</label>
+        <select class="item-catalog" onchange="onCatalogPickChanged(this)">
+          ${catalogOptionHtml(catCode)}
+        </select>
+      </div>
+      <div class="item-col grow">
+        <label>Description</label>
+        <input type="text" name="item_description" required placeholder="Product / service name" value="${escapeAttr(p.description || '')}" />
+      </div>
+      <div class="item-col small">
+        <label>${currentInvoiceType === 'service' ? 'Hours / Qty' : 'Qty'}</label>
+        <input type="number" name="item_qty" min="0.01" step="${currentInvoiceType === 'service' ? '0.25' : '1'}" value="${p.quantity == null ? 1 : p.quantity}" class="num-input" oninput="recalcTotals()" />
+      </div>
+      <div class="item-col small">
+        <label>Unit Price (AED, exc. VAT)</label>
+        <input type="number" name="item_price" min="0" step="0.01" value="${(p.unit_price == null ? '0.00' : p.unit_price)}" class="num-input" oninput="recalcTotals()" />
+      </div>
+      <div class="item-col small">
+        <label>Line VAT %</label>
+        <input type="number" name="item_vat" min="0" max="100" step="0.5" value="${p.tax_rate == null ? '' : p.tax_rate}" class="num-input" placeholder="inherit" oninput="recalcTotals()" />
+        <input type="hidden" name="item_vat_hidden" value="${p.vat_hidden || ''}" />
+      </div>
+      <div class="item-col small">
+        <label>Line Total</label>
+        <input type="text" class="line-total read-only num-input" value="0.00" readonly />
+      </div>
+      <div class="item-col small">
+        <label>Cost Center</label>
+        <select name="item_cost_center" class="line-cost-center">
+          ${ccOptionHtml(lineCC)}
+        </select>
+        <input type="hidden" name="item_unit_cost_hidden" value="${p.unit_cost_hidden || p.unit_cost || 0}" />
+        <input type="hidden" name="item_cc_hidden" value="${p.cc_hidden || ''}" />
+      </div>
+      <div class="item-col tiny-actions">
+        <button type="button" class="btn-icon" title="Remove line" onclick="deleteRow(this)">✕</button>
+      </div>
+    `;
+    container.appendChild(tmpl);
+    rebindDeletes();
+    reindexRows();
+    recalcTotals();
+  }
+
+  function onCatalogPickChanged(selEl) {
+    const row = selEl.closest('.item-row');
+    const opt = selEl.options[selEl.selectedIndex];
+    const catIdx = opt ? parseInt(opt.getAttribute('data-idx') || '-1', 10) : -1;
+    const cat = getCatalog();
+    if (catIdx >= 0 && cat[catIdx]) {
+      const it = cat[catIdx];
+      row.querySelector('input[name="item_description"]').value = it.description || it.name || '';
+      row.querySelector('input[name="item_price"]').value = (it.unit_price || 0).toFixed(2);
+      row.querySelector('input[name="item_unit_cost_hidden"]').value = (it.unit_cost || 0);
+      row.querySelector('input[name="item_vat_hidden"]').value = it.vat_rate != null ? it.vat_rate : '';
+      const vatInput = row.querySelector('input[name="item_vat"]');
+      if (vatInput && (vatInput.value === '' || !vatInput.value.trim())) {
+        vatInput.value = it.vat_rate != null ? it.vat_rate : '';
+      }
+      row.querySelector('input[name="item_cc_hidden"]').value = it.default_cost_center_id || '';
+      const lineCCSel = row.querySelector('select.line-cost-center');
+      if (lineCCSel && (lineCCSel.value === '' || lineCCSel.value == null)) {
+        if (it.default_cost_center_id) {
+          for (const o of lineCCSel.options) {
+            if (o.value === it.default_cost_center_id) {
+              lineCCSel.value = it.default_cost_center_id;
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      row.querySelector('input[name="item_unit_cost_hidden"]').value = '0';
+      row.querySelector('input[name="item_cc_hidden"]').value = '';
+      row.querySelector('input[name="item_vat_hidden"]').value = '';
+    }
+    recalcTotals();
+  }
+
+  function recalcTotals() {
+    const rows = document.querySelectorAll('#items .item-row');
+    let subtotal = 0;
+    let tax = 0;
+    const headerVatRate = parseFloat(document.getElementById('taxRateInput').value || 0) || 0;
+    document.getElementById('taxRateView').textContent = headerVatRate.toFixed(1).replace(/\.0$/, '');
+    rows.forEach(r => {
+      const q = parseFloat(r.querySelector('[name="item_qty"]').value || 0) || 0;
+      const p = parseFloat(r.querySelector('[name="item_price"]').value || 0) || 0;
+      const lt = round2(q * p);
+      r.querySelector('.line-total').value = lt.toFixed(2);
+      subtotal += lt;
+      const lvRaw = r.querySelector('[name="item_vat"]').value;
+      const lv = (lvRaw !== '' && lvRaw != null) ? (parseFloat(lvRaw) || 0) : headerVatRate;
+      tax += round2(lt * (lv / 100.0));
+    });
+    subtotal = round2(subtotal);
+    tax = round2(tax);
+    document.getElementById('subtotalView').textContent = subtotal.toFixed(2);
+    document.getElementById('taxView').textContent = tax.toFixed(2);
+    document.getElementById('totalView').textContent = (subtotal + tax).toFixed(2);
+  }
+  function round2(v) { return Math.round((v + Number.EPSILON) * 100) / 100; }
+
+  function rebindDeletes() {
+    const rows = document.querySelectorAll('#items .item-row');
+    rows.forEach(r => {
+      const actions = r.querySelector('.tiny-actions');
+      if (actions && !actions.querySelector('.btn-icon') && rows.length > 1) {
+        const btn = document.createElement('button');
+        btn.type = 'button'; btn.className = 'btn-icon'; btn.title = 'Remove line'; btn.textContent = '✕';
+        btn.setAttribute('onclick', 'deleteRow(this)');
+        actions.appendChild(btn);
+      }
+      if (rows.length <= 1 && actions) actions.innerHTML = '';
+    });
+  }
+
+  function validateAndShowErrors() {
+    const alerts = [];
+    const headerCC = document.getElementById('headerCostCenter').value;
+    const rows = document.querySelectorAll('#items .item-row');
+    if (!headerCC) {
+      let anyMissing = false;
+      rows.forEach(r => {
+        const v = r.querySelector('select.line-cost-center').value;
+        if (!v) anyMissing = true;
+      });
+      if (anyMissing) alerts.push('Please assign a Cost Center to the header OR every line item.');
+    }
+    const box = document.getElementById('formTopAlert');
+    if (alerts.length) {
+      box.textContent = alerts[0];
+      box.classList.remove('hidden');
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return false;
+    }
+    box.classList.add('hidden');
+    box.textContent = '';
+    return true;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (EDIT_ITEMS && EDIT_ITEMS.length) {
+      for (const ei of EDIT_ITEMS) {
+        addItemRow({
+          description: ei.description || '',
+          quantity: ei.quantity || 1,
+          unit_price: ei.unit_price != null ? ei.unit_price : 0,
+          tax_rate: ei.tax_rate != null ? ei.tax_rate : '',
+          line_cost_center_id: ei.cost_center_id || '',
+          unit_cost_hidden: ei.unit_cost || 0,
+          cc_hidden: ei.cost_center_id || '',
+        });
+      }
+    } else {
+      addItemRow();
+    }
+    recalcTotals();
+    rebindDeletes();
+    document.getElementById('taxRateInput').addEventListener('input', recalcTotals);
+    document.getElementById('invForm').addEventListener('submit', (e) => {
+      if (!validateAndShowErrors()) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+    });
+  });
+</script>
+{% endblock %}

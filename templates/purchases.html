@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}🚚 Purchases — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>🚚 Procurement / Purchases</h2>
+    <p class="muted">Supplier expenses, tracked per company. Click "Mark Paid" once a payment is settled.</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('purchase_create_form') }}">➕ Record Purchase</a>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Purchases</div><div class="stat-value">{{ purchases|length }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Amount (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_amount) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Paid (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_paid) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Unpaid (AED)</div><div class="stat-value owed">{{ "{:,.2f}".format(total_amount - total_paid) }}</div></div>
+</section>
+
+<div class="card">
+  {% if purchases %}
+  <div class="table-wrap">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Purchase #</th>
+          <th>Description</th>
+          <th>Supplier</th>
+          <th>Category</th>
+          <th>Date</th>
+          <th class="num">Amount</th>
+          <th class="num">Paid</th>
+          <th>Status</th>
+          <th class="actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in purchases %}
+          {% set status, cls = status_chip_for_purchase(p) %}
+        <tr>
+          <td class="mono"><strong>{{ p.purchase_id }}</strong></td>
+          <td>{{ p.description }}</td>
+          <td>{{ p.supplier or '—' }}</td>
+          <td><span class="cat-chip">{{ p.category or 'General' }}</span></td>
+          <td>{{ p.date or '—' }}</td>
+          <td class="num">{{ "{:,.2f}".format(p.amount or 0) }}</td>
+          <td class="num">{{ "{:,.2f}".format(p.amount_paid or 0) }}</td>
+          <td><span class="status-chip {{ cls }}">{{ status }}</span></td>
+          <td class="actions">
+            {% if status != 'Paid' %}
+            <form method="post" action="{{ url_for('purchase_mark_paid', purchase_id=p.purchase_id) }}" onsubmit="return confirm('Mark purchase {{ p.purchase_id }} as fully paid?');">
+              <button class="btn btn-ghost mini" type="submit">✓ Mark Paid</button>
+            </form>
+            {% else %}
+            <span class="muted small">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No purchases recorded</h3>
+      <p class="muted">Click ➕ Record Purchase to add one.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

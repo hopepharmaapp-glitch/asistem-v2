@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}🛍️ Marketplaces — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>🛍️ E-Commerce Marketplaces</h2>
+    <p class="muted">Channel summary — orders, sales, and fees per platform.</p>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Active Channels</div><div class="stat-value">{{ channels|length }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Orders</div><div class="stat-value">{{ "{:,}".format(total_orders) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Gross Sales (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_sales) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Platform Fees (AED)</div><div class="stat-value owed">{{ "{:,.2f}".format(total_fees) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Net Sales (AED)</div><div class="stat-value">{{ "{:,.2f}".format(net_sales) }}</div></div>
+</section>
+
+<div class="card">
+  {% if channels %}
+  <div class="table-wrap">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Channel</th>
+          <th>Status</th>
+          <th class="num">Orders</th>
+          <th class="num">Sales (AED)</th>
+          <th class="num">Fees (AED)</th>
+          <th class="num">Net (AED)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in channels %}
+          {% set net = (c.sales|default(0)) - (c.fees|default(0)) %}
+          {% set s = c.status or 'Active' %}
+          {% set cls = 'status-paid' if s in ('Connected','Active') else 'status-pending' %}
+        <tr>
+          <td><strong>{{ c.name }}</strong></td>
+          <td><span class="status-chip {{ cls }}">{{ s }}</span></td>
+          <td class="num">{{ "{:,}".format(c.orders|default(0)) }}</td>
+          <td class="num">{{ "{:,.2f}".format(c.sales|default(0)) }}</td>
+          <td class="num">{{ "{:,.2f}".format(c.fees|default(0)) }}</td>
+          <td class="num">{{ "{:,.2f}".format(net) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="2" style="text-align:right">TOTALS →</th>
+          <th class="num">{{ "{:,}".format(total_orders) }}</th>
+          <th class="num">{{ "{:,.2f}".format(total_sales) }}</th>
+          <th class="num">{{ "{:,.2f}".format(total_fees) }}</th>
+          <th class="num">{{ "{:,.2f}".format(net_sales) }}</th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No channels configured</h3>
+      <p class="muted">Connect marketplaces via the desktop Marketplace Manager.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

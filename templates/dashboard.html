@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}📊 Business Dashboard — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>📊 Business Dashboard</h2>
+    <p class="muted">Real-time snapshot of active company: <strong>{{ active_company.display_name if active_company else 'HopePharma' }}</strong>.
+      Core revenue / COGS figures driven by <code>compute_financials()</code> single-source of truth.</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('invoice_new_form') }}">➕ New Invoice</a>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Active Invoices</div><div class="stat-value">{{ invoices_n }}</div></div>
+  <div class="stat-card"><div class="stat-label">Revenue (Subtotal, excl VAT)</div><div class="stat-value positive">{{ "{:,.2f}".format(fin.revenue_total if fin and fin.revenue_total != None else 0) }}</div></div>
+  <div class="stat-card"><div class="stat-label">COGS / Direct Cost</div><div class="stat-value owed">{{ "{:,.2f}".format(fin.cogs_total if fin and fin.cogs_total != None else 0) }}</div></div>
+  <div class="stat-card">
+    <div class="stat-label">Gross Profit $</div>
+    <div class="stat-value {% if fin and fin.gross_profit_total != None and fin.gross_profit_total >= 0 %}positive{% else %}owed{% endif %}">
+      {{ "{:,.2f}".format(fin.gross_profit_total if fin and fin.gross_profit_total != None else 0) }}
+    </div>
+  </div>
+  <div class="stat-card"><div class="stat-label">Gross Margin %</div>
+    <div class="stat-value neutral">
+      {% set gm = fin.gross_margin_pct if fin and fin.gross_margin_pct != None else 0 %}
+      {{ "{:.2f}".format(gm) }}%
+    </div>
+  </div>
+  <div class="stat-card"><div class="stat-label">Outstanding (A/R)</div><div class="stat-value owed">{{ "{:,.2f}".format(total_owed) }}</div></div>
+  <div class="stat-card"><div class="stat-label">⚠️ Overdue</div><div class="stat-value owed">{{ overdue_n }}</div></div>
+  <div class="stat-card"><div class="stat-label">This Month Sales (Grand)</div><div class="stat-value">{{ "{:,.2f}".format(month_sales) }}</div></div>
+</section>
+
+<section class="charts-row">
+  <div class="chart-card">
+    <div class="section-title mb"><h3>🥧 Revenue Mix — Sales vs Service (count)</h3></div>
+    <div class="chart-wrap"><canvas id="mixChart"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="section-title mb"><h3>🏆 Top 5 Cost Centers by Gross Profit $</h3>
+      <p class="muted small">Shows only cost centers that had invoice activity.</p>
+    </div>
+    <div class="chart-wrap"><canvas id="top5Chart"></canvas></div>
+  </div>
+</section>
+
+<section class="grid-cols-2 mt">
+  <div class="card">
+    <div class="section-title mb"><h3>📈 6-Month Trend (Sales vs Purchases — Grand Total)</h3><p class="muted small">Approximate 30-day buckets</p></div>
+    <div class="trend-chart">
+      {% set ms = max_sales if max_sales > 0.01 else 1 %}
+      {% set mp = max_purchases if max_purchases > 0.01 else 1 %}
+      {% for label, sales, pur in trend_months %}
+        <div class="trend-row">
+          <div class="trend-label">{{ label }}</div>
+          <div class="trend-bars">
+            <div class="bar-sales-wrap"><div class="bar bar-sales" style="width:{{ (sales / ms * 100)|round(1) }}%"></div><span class="bar-val">AED {{ "{:,.0f}".format(sales) }}</span></div>
+            <div class="bar-pur-wrap"><div class="bar bar-purchase" style="width:{{ (pur / mp * 100)|round(1) }}%"></div><span class="bar-val pur">AED {{ "{:,.0f}".format(pur) }}</span></div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <div class="legend"><span class="dot dot-sales"></span> Sales <span class="dot dot-pur"></span> Purchases</div>
+  </div>
+
+  <div class="card">
+    <div class="section-title mb"><h3>⚡ Recent Invoices</h3><p class="muted small">Latest 8 invoices</p></div>
+    {% if recent_invoices %}
+      <div class="table-wrap"><table class="invoice-table compact">
+        <thead><tr><th>#</th><th>Type</th><th>Client</th><th>Date</th><th class="num">Total</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for inv in recent_invoices %}
+            {% set status, cls, bal = status_chip_info_for_invoice(inv) %}
+            {% set itype = (inv.invoice_type or 'sales')|lower %}
+            <tr>
+              <td class="mono"><a href="{{ url_for('invoice_view', invoice_id=inv.invoice_id) }}">{{ inv.invoice_id }}</a></td>
+              <td>{% if itype == 'service' %}<span class="badge-service">S</span>{% else %}<span class="badge-sales">G</span>{% endif %}</td>
+              <td>{{ inv.client_name or "—" }}</td>
+              <td>{{ inv.date or "—" }}</td>
+              <td class="num">{{ "{:,.2f}".format(inv.grand_total or 0) }}</td>
+              <td><span class="status-chip {{ cls }}">{{ status }}</span></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}
+      <div class="empty"><h3>No invoices yet</h3><p class="muted">Create your first invoice to populate the dashboard.</p></div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card mt">
+  <div class="section-title mb">
+    <h3>📋 P&amp;L by Cost Center (All-time — single-source compute_financials)</h3>
+    <p class="pl-hint">Revenue, COGS, GP and GM% all come from the financial aggregator. No stray inline sums rendered.</p>
+  </div>
+  {% if all_cc_rows %}
+  <div class="table-wrap">
+    <table class="pl-table">
+      <thead>
+        <tr>
+          <th>Cost Center</th>
+          <th>Invoices</th>
+          <th class="num">Revenue</th>
+          <th class="num">COGS / Direct</th>
+          <th class="num">Gross Profit</th>
+          <th class="num">GM%</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set total_rev = namespace(v=0.0) %}
+        {% set total_cogs = namespace(v=0.0) %}
+        {% for r in all_cc_rows %}
+          {% set total_rev.v = total_rev.v + r.revenue %}
+          {% set total_cogs.v = total_cogs.v + r.cogs %}
+          {% set gp_cls = 'pos' if r.gp >= 0 else 'neg' %}
+        <tr class="gp {{ gp_cls }}">
+          <td><strong>{{ r.label }}</strong></td>
+          <td>{{ r.inv_count or 0 }}</td>
+          <td class="num">{{ "{:,.2f}".format(r.revenue) }}</td>
+          <td class="num">{{ "{:,.2f}".format(r.cogs) }}</td>
+          <td class="num">{{ "{:,.2f}".format(r.gp) }}</td>
+          <td class="num gm">{{ "{:.2f}".format(r.gm_pct) }}%</td>
+        </tr>
+        {% endfor %}
+        {% set total_gp = total_rev.v - total_cogs.v %}
+        {% set total_gm = (total_gp / total_rev.v * 100.0) if total_rev.v > 0.0001 else 0.0 %}
+        <tr class="tot">
+          <td>TOTAL</td>
+          <td>{{ invoices_n }}</td>
+          <td class="num">{{ "{:,.2f}".format(total_rev.v) }}</td>
+          <td class="num">{{ "{:,.2f}".format(total_cogs.v) }}</td>
+          <td class="num {{ 'positive' if total_gp >= 0 else 'owed' }}">{{ "{:,.2f}".format(total_gp) }}</td>
+          <td class="num gm">{{ "{:.2f}".format(total_gm) }}%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty"><h3>No cost-center data yet</h3><p class="muted">Save at least one invoice with a cost center to populate this breakdown.</p></div>
+  {% endif %}
+</section>
+
+<section class="card mt">
+  <div class="section-title mb"><h3>💡 Quick Summary (Operations)</h3></div>
+  <div class="grid-cols-4">
+    <div class="kpi neutral"><div class="kpi-label">Total Purchases (all time)</div><div class="kpi-value">AED {{ "{:,.2f}".format(total_purchases) }}</div></div>
+    <div class="kpi"><div class="kpi-label">Net Outstanding (A/R)</div><div class="kpi-value {{ 'owed' if total_owed > 0 else '' }}">AED {{ "{:,.2f}".format(total_owed) }}</div></div>
+    <div class="kpi neutral"><div class="kpi-label">In Archive (soft-deleted)</div><div class="kpi-value">{{ archived_n }}</div></div>
+    <div class="kpi neutral">
+      <div class="kpi-label">Avg Invoice Value (Grand)</div>
+      <div class="kpi-value">AED {{ "{:,.2f}".format(total_amount / invoices_n if invoices_n else 0) }}</div>
+    </div>
+    <div class="kpi neutral"><div class="kpi-label">Salaries (payroll paid)</div><div class="kpi-value">AED {{ "{:,.2f}".format(fin.salaries_total if fin and fin.salaries_total != None else 0) }}</div></div>
+    <div class="kpi neutral"><div class="kpi-label">Operating Expenses (Pur + Sal)</div><div class="kpi-value">AED {{ "{:,.2f}".format(fin.operating_expenses_total if fin and fin.operating_expenses_total != None else 0) }}</div></div>
+    <div class="kpi {% if fin and fin.ebit != None and fin.ebit >= 0 %}positive{% else %}critical{% endif %}">
+      <div class="kpi-label">EBIT (GP – OpEx)</div>
+      <div class="kpi-value">AED {{ "{:,.2f}".format(fin.ebit if fin and fin.ebit != None else 0) }}</div>
+    </div>
+    <div class="kpi"><div class="kpi-label">Open (unpaid) invoices</div>
+      <div class="kpi-value owed">{{ fin.open_invoice_count if fin and fin.open_invoice_count != None else 0 }}
+        <span class="stat-label muted small">= {{ "{:,.2f}".format(fin.open_invoice_amount if fin and fin.open_invoice_amount != None else 0) }} AED</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const sCount = {{ sales_count or 0 }};
+    const svcCount = {{ service_count or 0 }};
+    try {
+      const mix = document.getElementById("mixChart");
+      if (mix && typeof Chart !== "undefined") {
+        new Chart(mix, {
+          type: "doughnut",
+          data: {
+            labels: ["Sales (Goods)", "Service"],
+            datasets: [{
+              data: [sCount, svcCount],
+              backgroundColor: ["#10b981", "#3b82f6"],
+              hoverBackgroundColor: ["#059669", "#2563eb"],
+              borderWidth: 2,
+              borderColor: "#fff",
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: "bottom", labels: { font: { weight: "600" } } },
+              tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed} invoice(s)` } },
+            },
+          },
+        });
+      }
+    } catch (e) { console.warn("mixChart error", e); }
+
+    try {
+      const t5 = document.getElementById("top5Chart");
+      const labels = {{ (top5_cc_gp | map(attribute='label') | list) | tojson }};
+      const values = {{ (top5_cc_gp | map(attribute='gp') | list) | tojson }};
+      if (t5 && labels && labels.length && typeof Chart !== "undefined") {
+        const colors = values.map(v => v >= 0 ? "#10b981" : "#ef4444");
+        new Chart(t5, {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [{
+              label: "Gross Profit (AED)",
+              data: values,
+              backgroundColor: colors,
+              borderColor: "#1E293B",
+              borderWidth: 1,
+              borderRadius: 6,
+            }],
+          },
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: (ctx) => ` GP: AED ${Number(ctx.parsed.x || 0).toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}` } },
+            },
+            scales: { x: { ticks: { callback: (v) => "AED " + Number(v).toLocaleString() } } },
+          },
+        });
+      }
+    } catch (e) { console.warn("top5Chart error", e); }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}💰 Salaries / Payroll — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>💰 Payroll / Salary Records</h2>
+    <p class="muted">Per-employee payslips, stamped to the active company.</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('employees_list') }}">👥 Employees</a>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Payslips</div><div class="stat-value">{{ salaries|length }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Paid (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_paid) }}</div></div>
+</section>
+
+<section class="grid-cols-2">
+  <div class="card">
+    <div class="section-title mb"><h3>➕ Record Payslip</h3></div>
+    {% if employees %}
+    <form method="post" action="{{ url_for('salary_create_post') }}" class="form-stack">
+      <div class="form-grid">
+        <div class="field"><label>Employee *</label>
+          <select name="employee_id" required>
+            <option value="">— Choose —</option>
+            {% for e in employees %}
+              <option value="{{ e.id }}">{{ e.name }}{% if e.position %} ({{ e.position }}){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field"><label>Period (YYYY-MM) *</label><input name="period" required value="{{ default_period }}" placeholder="e.g. 2026-09" /></div>
+        <div class="field"><label>Gross Salary (AED) *</label><input type="number" step="0.01" min="0" name="gross_amount" required placeholder="0.00" /></div>
+        <div class="field"><label>Deductions (AED)</label><input type="number" step="0.01" min="0" name="deductions" value="0" /></div>
+        <div class="field"><label>Allowances / Bonus (AED)</label><input type="number" step="0.01" min="0" name="allowances" value="0" /></div>
+        <div class="field"><label>Payment Date</label><input type="date" name="payment_date" value="{{ today }}" /></div>
+        <div class="field full"><label>Notes</label><textarea name="notes" rows="2" placeholder="Optional"></textarea></div>
+      </div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">💾 Save Payslip</button></div>
+    </form>
+    {% else %}
+      <div class="empty"><h3>⚠️ No employees</h3><p class="muted">Add employees first in 👥 Employee Manager.</p></div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="section-title mb"><h3>📄 Payslip History</h3><p class="muted small">Total: {{ salaries|length }}</p></div>
+    {% if salaries %}
+      <div class="table-wrap"><table class="invoice-table compact">
+        <thead><tr>
+          <th>Payslip #</th><th>Employee</th><th>Period</th>
+          <th class="num">Gross</th><th class="num">Ded</th><th class="num">Allow</th>
+          <th class="num">Net</th><th>Date</th>
+        </tr></thead>
+        <tbody>
+          {% for s in salaries %}
+          <tr>
+            <td class="mono">{{ s.payslip_id }}</td>
+            <td>{{ s.employee_name or '—' }}</td>
+            <td>{{ s.period or '—' }}</td>
+            <td class="num">{{ "{:,.2f}".format(s.gross_amount or 0) }}</td>
+            <td class="num">{{ "{:,.2f}".format(s.deductions or 0) }}</td>
+            <td class="num">{{ "{:,.2f}".format(s.allowances or 0) }}</td>
+            <td class="num strong-net">{{ "{:,.2f}".format(s.net_amount or 0) }}</td>
+            <td>{{ s.payment_date or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}
+      <div class="empty"><h3>No payslips</h3><p class="muted">Use the form to record payroll.</p></div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

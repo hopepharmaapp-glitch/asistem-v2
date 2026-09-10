@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}404 — Page Not Found · ASISTEM{% endblock %}
+{% block content %}
+<section class="card" style="text-align:center;padding:60px 20px">
+  <div style="font-size:80px;font-weight:900;color:var(--navy);margin:0">404</div>
+  <h2 style="margin:10px 0 6px;color:var(--navy)">Page Not Found</h2>
+  <p class="muted">The page you requested doesn't exist or was moved.</p>
+  <div style="margin-top:24px">
+    <a class="btn btn-primary" href="{{ url_for('dashboard') }}">📊 Go to Dashboard</a>
+    <a class="btn btn-ghost" href="{{ url_for('invoices_list') }}">💼 Invoices</a>
+  </div>
+</section>
+{% endblock %}

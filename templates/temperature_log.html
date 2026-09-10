@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}🌡 Temperature Log — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>🌡 Temperature &amp; Humidity Log</h2>
+    <p class="muted">QA cold-chain audit log for active company.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-ghost" href="{{ url_for('warehouse_view') }}">🏬 Warehouses</a>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Readings</div><div class="stat-value">{{ total_readings }}</div></div>
+  <div class="stat-card"><div class="stat-label">⚠️ Alerts</div><div class="stat-value owed">{{ alerts_n }}</div></div>
+</section>
+
+<div class="card">
+  {% if logs %}
+  <div class="table-wrap">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Warehouse</th>
+          <th>Zone</th>
+          <th class="num">Temp (°C)</th>
+          <th class="num">RH (%)</th>
+          <th>Status</th>
+          <th>Recorded By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in logs %}
+          {% set s = l.status or 'OK' %}
+          {% set cls = 'status-paid' if s == 'OK' else 'status-unpaid' %}
+          {% set t = l.temp_c|default(0) %}
+          {% set temp_cls = 'owed' if t < 2 or t > 8 else '' %}
+        <tr>
+          <td>{{ l.date or '—' }}</td>
+          <td>{{ l.time or '—' }}</td>
+          <td>{{ l.warehouse or '—' }}</td>
+          <td>{{ l.zone or '—' }}</td>
+          <td class="num {{ temp_cls }}">{{ "{:.1f}".format(t) if t else '—' }}</td>
+          <td class="num">{{ l.rh_pct or l.humidity or '—' }}</td>
+          <td><span class="status-chip {{ cls }}">{{ s }}</span></td>
+          <td>{{ l.taken_by or l.user or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No readings</h3>
+      <p class="muted">Log temperature readings in the desktop Temperature Log module.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

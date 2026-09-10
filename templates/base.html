@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{% block title %}ASISTEM — Multi-Company Business Suite{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="logo sistem">AS</div>
+        <div>
+          <h1>ASISTEM</h1>
+          <p class="tagline">Multi-Company Business &amp; Invoicing Platform</p>
+        </div>
+      </div>
+
+      <div class="brand working-as">
+        <div class="logo-badge">🏢</div>
+        <div>
+          <div class="badge-label">Working as</div>
+          <div class="company-name">
+            <strong>{{ active_company.display_name if active_company else 'HopePharma Medical Trading' }}</strong>
+            <span class="prefix-pill">{{ active_company.prefix if active_company else 'HPMT' }}####</span>
+          </div>
+        </div>
+        {% if is_logged_in %}
+          {% set user_cid = current_user.company_id if current_user else None %}
+          {% set my_companies = companies | selectattr('id', 'equalto', user_cid) | list if current_user else [] %}
+          {# Company switcher ONLY lists the user's assigned company (security: no info leak about other companies) #}
+          {% if my_companies and my_companies|length >= 1 and (current_user.role == 'admin' or current_user.company_id) %}
+            <form method="post" action="{{ url_for('switch_company') }}" class="switcher">
+              <select name="company_id" onchange="this.form.submit()" class="switch-select" aria-label="Switch company">
+                {% for c in my_companies %}
+                  <option value="{{ c.id }}" {% if active_company and c.id == active_company.id %}selected{% endif %}>
+                    {{ c.name }} ({{ c.prefix }}####)
+                  </option>
+                {% endfor %}
+              </select>
+              {% if current_user.role == 'admin' and current_user.company_id == 'com_hopepharma' %}
+                <a class="manage-link" href="{{ url_for('manage_companies_get') }}" title="Manage companies">Manage</a>
+              {% endif %}
+            </form>
+          {% else %}
+            {% if current_user.role == 'admin' and current_user.company_id == 'com_hopepharma' %}
+              <a class="manage-link" href="{{ url_for('manage_companies_get') }}" title="Create a new company profile">+ Add Company</a>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          {% if companies and companies|length > 1 %}
+            <a class="manage-link" href="{{ url_for('manage_companies_get') }}" title="Manage companies">Manage</a>
+          {% else %}
+            <a class="manage-link" href="{{ url_for('manage_companies_get') }}" title="Create a new company profile">+ Add Company</a>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      <nav class="nav nav-groups">
+        <details class="nav-grp">
+          <summary class="{% if request.endpoint in ['dashboard','root_redirect'] %}active{% endif %}">📊 Dashboard</summary>
+          <div class="nav-grp-links">
+            <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">📊 Overview</a>
+          </div>
+        </details>
+        <details class="nav-grp">
+          <summary class="{% if request.endpoint in ['balance_view','transactions_view','reports_gaap'] %}active{% endif %}">💰 Finance</summary>
+          <div class="nav-grp-links">
+            <a href="{{ url_for('balance_view') }}" class="{% if request.endpoint == 'balance_view' %}active{% endif %}">💰 Balances</a>
+            <a href="{{ url_for('transactions_view') }}" class="{% if request.endpoint == 'transactions_view' %}active{% endif %}">📒 Transactions</a>
+            <a href="{{ url_for('reports_gaap') }}" class="{% if request.endpoint == 'reports_gaap' %}active{% endif %}">📊 GAAP Reports</a>
+          </div>
+        </details>
+        <details class="nav-grp">
+          <summary class="{% if request.endpoint in ['inventory_view','warehouse_view'] %}active{% endif %}">📦 Warehouse</summary>
+          <div class="nav-grp-links">
+            <a href="{{ url_for('inventory_view') }}" class="{% if request.endpoint == 'inventory_view' %}active{% endif %}">📦 Inventory</a>
+            <a href="{{ url_for('warehouse_view') }}" class="{% if request.endpoint == 'warehouse_view' %}active{% endif %}">🏬 Warehouses</a>
+          </div>
+        </details>
+        <details class="nav-grp">
+          <summary class="{% if request.endpoint == 'temperature_log_view' %}active{% endif %}">🏥 QA</summary>
+          <div class="nav-grp-links">
+            <a href="{{ url_for('temperature_log_view') }}" class="{% if request.endpoint == 'temperature_log_view' %}active{% endif %}">🌡 Temperature Log</a>
+          </div>
+        </details>
+        <details class="nav-grp">
+          <summary class="{% if request.endpoint in ['quotations_view','invoices_list','invoice_view','invoice_new_form','invoice_edit_form','invoice_pdf','clients_view'] %}active{% endif %}">💼 Sales CRM</summary>
+          <div class="nav-grp-links">
+            <a href="{{ url_for('quotations_view') }}" class="{% if request.endpoint == 'quotations_view' %}active{% endif %}">📝 Quotations</a>
+            <a href="{{ url_for('invoices_list') }}" class="{% if request.endpoint in ['invoices_list','invoice_view','invoice_new_form','invoice_edit_form','invoice_pdf'] %}active{% endif %}">🧾 Invoices</a>
+            <a href="{{ url_for('clients_view') }}" class="{% if request.endpoint == 'clients_view' %}active{% endif %}">👤 Clients</a>
+          </div>
+        </details>
+        <details class="nav-grp">
+          <summary class="{% if request.endpoint in ['purchases_list','purchase_create_form','purchase_create_post','purchase_mark_paid'] %}active{% endif %}">🚚 Procurement</summary>
+          <div class="nav-grp-links">
+            <a href="{{ url_for('purchases_list') }}" class="{% if request.endpoint in ['purchases_list','purchase_create_form'] %}active{% endif %}">🛒 Purchases</a>
+          </div>
+        </details>
+        <details class="nav-grp">
+          <summary class="{% if request.endpoint in ['reports_gaap','reports_tb'] %}active{% endif %}">📈 Analytics</summary>
+          <div class="nav-grp-links">
+            <a href="{{ url_for('reports_gaap') }}" class="{% if request.endpoint == 'reports_gaap' %}active{% endif %}">📊 GAAP (P&amp;L / BS)</a>
+            <a href="{{ url_for('reports_tb') }}" class="{% if request.endpoint == 'reports_tb' %}active{% endif %}">📈 Trial Balance</a>
+          </div>
+        </details>
+        <details class="nav-grp">
+          <summary class="{% if request.endpoint == 'marketplaces_view' %}active{% endif %}">🛍️ E-Commerce</summary>
+          <div class="nav-grp-links">
+            <a href="{{ url_for('marketplaces_view') }}" class="{% if request.endpoint == 'marketplaces_view' %}active{% endif %}">🛍️ Marketplaces</a>
+          </div>
+        </details>
+        <details class="nav-grp">
+          <summary class="{% if request.endpoint in ['employees_list','salaries_list'] %}active{% endif %}">👥 HR</summary>
+          <div class="nav-grp-links">
+            <a href="{{ url_for('employees_list') }}" class="{% if request.endpoint == 'employees_list' %}active{% endif %}">👥 Employees</a>
+            <a href="{{ url_for('salaries_list') }}" class="{% if request.endpoint == 'salaries_list' %}active{% endif %}">💰 Salaries</a>
+          </div>
+        </details>
+        <details class="nav-grp">
+          <summary class="{% if request.endpoint in ['company_settings_form','manage_companies_get','archive_page','users_list'] %}active{% endif %}">⚙️ System</summary>
+          <div class="nav-grp-links">
+            {% if is_admin %}
+            <a href="{{ url_for('users_list') }}" class="{% if request.endpoint == 'users_list' %}active{% endif %}">👥 Users &amp; Roles</a>
+            <a href="{{ url_for('company_settings_form') }}" class="{% if request.endpoint == 'company_settings_form' %}active{% endif %}">⚙️ Company Settings</a>
+            <a href="{{ url_for('manage_companies_get') }}" class="{% if request.endpoint == 'manage_companies_get' %}active{% endif %}">🏢 Companies</a>
+            <a href="{{ url_for('archive_page') }}" class="{% if request.endpoint == 'archive_page' %}active{% endif %}">🗑️ Deleted Archive</a>
+            {% else %}
+            <a href="{{ url_for('company_settings_form') }}" class="{% if request.endpoint == 'company_settings_form' %}active{% endif %}">⚙️ Company Profile (read-only)</a>
+            {% endif %}
+          </div>
+        </details>
+      </nav>
+
+      {# Logged-in user menu / Log out (top-right) #}
+      {% if is_logged_in and current_user %}
+        <div class="user-menu" title="Signed in">
+          <div class="avatar" aria-hidden="true" style="{% if is_admin %}background: linear-gradient(135deg, #6366f1, #8b5cf6);{% else %}background: linear-gradient(135deg, #10b981, #06b6d4);{% endif %} color:white;font-weight:700;">
+            {{ (current_user.full_name or current_user.username or 'U') | truncate(2, True, '') | upper }}
+          </div>
+          <div class="user-info">
+            <div class="user-name">
+              {{ current_user.full_name or current_user.username }}
+              {% if is_admin %}
+                <span class="role-badge role-admin" title="Administrator — full access">👑 ADMIN</span>
+              {% else %}
+                <span class="role-badge role-staff" title="Staff — day-to-day access">👤 STAFF</span>
+              {% endif %}
+            </div>
+            <div class="user-sub">
+              @{{ current_user.username }} · {{ current_user.email or '—' }}
+            </div>
+          </div>
+          <form method="post" action="{{ logout_url }}" style="display:inline;margin:0;padding:0;">
+            <button type="submit" class="logout-btn" title="Sign out of ASISTEM securely">
+              🚪 Sign Out
+            </button>
+          </form>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+
+  <main class="container content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flashes">
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <strong>ASISTEM</strong> · Generated via ASISTEM — Multi-Company Business Suite ·
+      Active company: <strong>{{ active_company.display_name if active_company else 'HopePharma Medical Trading' }}</strong>
+      · © {{ year }}
+    </div>
+  </footer>
+</body>
+</html>

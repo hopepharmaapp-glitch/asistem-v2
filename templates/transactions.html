@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}📒 Transactions — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>📒 Transaction Ledger</h2>
+    <p class="muted">Money movements for active company — invoices (income) &amp; purchases paid (expense).</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('balance_view') }}">💰 Balances</a>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Transactions</div><div class="stat-value">{{ transactions|length }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total In (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_in) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Out (AED)</div><div class="stat-value owed">{{ "{:,.2f}".format(total_out) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Net (AED)</div><div class="stat-value {{ 'owed' if net < 0 else '' }}">{{ "{:,.2f}".format(net) }}</div></div>
+</section>
+
+<div class="card">
+  {% if transactions %}
+  <div class="table-wrap">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Reference</th>
+          <th>Counterparty</th>
+          <th>Account</th>
+          <th class="num">Amount (AED)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in transactions %}
+          {% set typ = (t.type or '—')|string %}
+          {% set is_in = typ.lower() in ('income','credit','in') %}
+          {% set cls = 'status-paid' if is_in else 'status-unpaid' %}
+        <tr>
+          <td>{{ t.date or '—' }}</td>
+          <td><span class="status-chip {{ cls }}">{{ typ }}</span></td>
+          <td class="mono">{{ t.reference or '—' }}</td>
+          <td>{{ t.counterparty or '—' }}</td>
+          <td>{{ t.account or '—' }}</td>
+          <td class="num {{ '' if is_in else 'owed' }}">{{ ("+" if is_in else "−") }}{{ "{:,.2f}".format(t.amount or 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No transactions</h3>
+      <p class="muted">Record customer payments or mark purchases paid to populate the ledger.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

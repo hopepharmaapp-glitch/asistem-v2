@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}📈 Trial Balance — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>📈 Legacy Trial Balance</h2>
+    <p class="muted">Chart of accounts with running debit/credit balances. As of <strong>{{ as_of }}</strong>.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-ghost" href="{{ url_for('reports_gaap') }}">📊 GAAP Reports</a>
+  </div>
+</section>
+
+<section class="stats small">
+  <div class="stat-card"><div class="stat-label">Accounts</div><div class="stat-value">{{ accounts|length }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Debit (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_debit) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Credit (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_credit) }}</div></div>
+  <div class="stat-card">
+    <div class="stat-label">Δ Difference</div>
+    <div class="stat-value {{ 'owed' if (total_debit - total_credit)|abs > 0.01 else '' }}">
+      {{ "{:,.2f}".format(total_debit - total_credit) }}
+    </div>
+  </div>
+</section>
+
+<div class="card">
+  {% if accounts %}
+  <div class="table-wrap">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Account Name</th>
+          <th>Type</th>
+          <th class="num">Debit (AED)</th>
+          <th class="num">Credit (AED)</th>
+          <th class="num">Net Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in accounts %}
+        <tr>
+          <td class="mono">{{ a.code }}</td>
+          <td>{{ a.name }}</td>
+          <td><span class="cat-chip type-{{ a.type|lower }}">{{ a.type or '—' }}</span></td>
+          <td class="num">{{ "{:,.2f}".format(a.debit) }}</td>
+          <td class="num">{{ "{:,.2f}".format(a.credit) }}</td>
+          <td class="num {{ 'owed' if a.balance < 0 else '' }}">{{ "{:,.2f}".format(a.balance) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="3" style="text-align:right">TOTALS →</th>
+          <th class="num">{{ "{:,.2f}".format(total_debit) }}</th>
+          <th class="num">{{ "{:,.2f}".format(total_credit) }}</th>
+          <th class="num">{{ "{:,.2f}".format(total_debit - total_credit) }}</th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No ledger activity</h3>
+      <p class="muted">The Chart of Accounts is seeded. Add invoices/purchases to populate the TB.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

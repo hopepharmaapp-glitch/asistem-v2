@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}💼 Invoice Management — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>💼 Active Invoices</h2>
+    <p class="muted">All non-deleted invoices for current company. Soft-deleted items go to the Archive and release their prefix number.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-ghost" href="{{ url_for('archive_page') }}">🗑️ Archive</a>
+    <a class="btn btn-primary" href="{{ url_for('invoice_new_form') }}">➕ New Invoice</a>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Active Invoices</div><div class="stat-value">{{ invoices|length }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Amount (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_amount) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Paid (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_paid) }}</div></div>
+  <div class="stat-card"><div class="stat-label">Outstanding (AED)</div><div class="stat-value owed">{{ "{:,.2f}".format(total_owed) }}</div></div>
+</section>
+
+<div class="card">
+  {% if invoices %}
+  <form method="get" class="filter-bar" onsubmit="return true;">
+    <div class="inline-field">
+      <label>Type</label>
+      <select name="filter_type" id="filter_type">
+        <option value="">All Types</option>
+        <option value="sales" {% if request.args.get('filter_type') == 'sales' %}selected{% endif %}>Sales Invoices</option>
+        <option value="service" {% if request.args.get('filter_type') == 'service' %}selected{% endif %}>Service Invoices</option>
+      </select>
+    </div>
+    <div class="inline-field">
+      <label>Cost Center</label>
+      <select name="filter_cc" id="filter_cc">
+        <option value="">All Cost Centers</option>
+        {% for cc in cost_centers %}
+          <option value="{{ cc.cost_center_id }}" {% if request.args.get('filter_cc') == cc.cost_center_id %}selected{% endif %}>{{ cc.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="button" class="filter-clear" onclick="document.getElementById('filter_type').value='';document.getElementById('filter_cc').value='';applyClientFilters();">Clear Filters</button>
+  </form>
+
+  <div class="table-wrap">
+    <table class="invoice-table" id="invTable">
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Type</th>
+          <th>Cost Center</th>
+          <th>Client</th>
+          <th>Date</th>
+          <th>Due</th>
+          <th class="num">Total</th>
+          <th class="num">Paid</th>
+          <th class="num">Balance</th>
+          <th>Status</th>
+          <th class="actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+          {% set status, cls, bal = status_chip_info_for_invoice(inv) %}
+          {% set inv_type = (inv.invoice_type or 'sales') | lower %}
+          {% set inv_cc_id = inv.cost_center_id or ((inv.items[0].cost_center_id) if inv.items and inv.items[0] and inv.items[0].cost_center_id else None) %}
+          {% set inv_cc_label = cc_label_map.get(inv_cc_id, '') if inv_cc_id else '' %}
+        <tr data-type="{{ inv_type }}" data-cc="{{ inv_cc_id or '' }}">
+          <td class="mono"><strong><a href="{{ url_for('invoice_view', invoice_id=inv.invoice_id) }}">{{ inv.invoice_id }}</a></strong></td>
+          <td>
+            {% if inv_type == 'service' %}
+              <span class="badge-service">Service</span>
+            {% else %}
+              <span class="badge-sales">Sales</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if inv_cc_label %}
+              <span class="cc-label" title="{{ inv_cc_label }}">{{ inv_cc_label }}</span>
+            {% else %}
+              <span class="muted small">—</span>
+            {% endif %}
+          </td>
+          <td>{{ inv.client_name or "—" }}</td>
+          <td>{{ inv.date or "—" }}</td>
+          <td>{{ inv.due_date or "—" }}</td>
+          <td class="num">{{ "{:,.2f}".format(inv.grand_total or 0) }}</td>
+          <td class="num">{{ "{:,.2f}".format(inv.total_paid or 0) }}</td>
+          <td class="num {{ 'owed' if bal > 0 else '' }}">{{ "{:,.2f}".format(bal) }}</td>
+          <td><span class="status-chip {{ cls }}">{{ status }}</span></td>
+          <td class="actions triple">
+            <a class="btn btn-ghost mini" href="{{ url_for('invoice_view', invoice_id=inv.invoice_id) }}">👁 View</a>
+            <a class="btn btn-ghost mini" href="{{ url_for('invoice_pdf', invoice_id=inv.invoice_id) }}">📄 PDF</a>
+            <a class="btn btn-ghost mini primary-outline" href="{{ url_for('invoice_download_pdf', invoice_id=inv.invoice_id) }}">⬇ Save PDF</a>
+            <form method="post" action="{{ url_for('delete_invoice', invoice_id=inv.invoice_id) }}" onsubmit="return confirm('Move {{ inv.invoice_id }} to Deleted Archive?');" style="display:inline-block;">
+              <button class="btn btn-ghost danger mini" type="submit">🗑</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No active invoices yet</h3>
+      <p class="muted">Click ➕ New Invoice above to create one.</p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  function applyClientFilters() {
+    const typeVal = document.getElementById('filter_type').value;
+    const ccVal = document.getElementById('filter_cc').value;
+    const rows = document.querySelectorAll('#invTable tbody tr');
+    let visible = 0;
+    rows.forEach(row => {
+      const matchType = !typeVal || (row.dataset.type === typeVal);
+      const matchCC = !ccVal || (row.dataset.cc === ccVal);
+      const show = matchType && matchCC;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    const emptyMsg = document.getElementById('emptyFiltered');
+    if (emptyMsg) emptyMsg.remove();
+    const tbody = document.querySelector('#invTable tbody');
+    if (visible === 0) {
+      const tr = document.createElement('tr');
+      tr.id = 'emptyFiltered';
+      tr.innerHTML = `<td colspan="11" style="padding: 32px 16px; text-align: center; color: var(--muted); font-weight: 600;">No invoices match the current filters.</td>`;
+      if (tbody) tbody.appendChild(tr);
+    }
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    const ft = document.getElementById('filter_type');
+    const fc = document.getElementById('filter_cc');
+    if (ft) ft.addEventListener('change', applyClientFilters);
+    if (fc) fc.addEventListener('change', applyClientFilters);
+    if ((ft && ft.value) || (fc && fc.value)) applyClientFilters();
+  });
+</script>
+{% endblock %}

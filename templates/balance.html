@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}💰 Balance Manager — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>💰 Balance Manager</h2>
+    <p class="muted">Account balances for active company (A/R, A/P proxies when balances.json is empty).</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('transactions_view') }}">📒 Transactions</a>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Accounts</div><div class="stat-value">{{ accounts|length }}</div></div>
+  <div class="stat-card">
+    <div class="stat-label">Net Balance (AED)</div>
+    <div class="stat-value {{ 'owed' if total_balance < 0 else '' }}">{{ "{:,.2f}".format(total_balance) }}</div>
+  </div>
+</section>
+
+<div class="card">
+  {% if accounts %}
+  <div class="table-wrap">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th>Type</th>
+          <th class="num">Balance (AED)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in accounts %}
+        <tr>
+          <td><strong>{{ a.name }}</strong></td>
+          <td>
+            {% set t = a.type or 'Asset' %}
+            {% set cls = {
+              'Asset':'status-paid',
+              'Liability':'status-pending',
+              'Equity':'status-partial',
+              'Revenue':'status-paid',
+              'Expense':'status-unpaid'
+            }.get(t, 'status-pending') %}
+            <span class="status-chip {{ cls }}">{{ t }}</span>
+          </td>
+          <td class="num {{ 'owed' if a.balance < 0 else '' }}">{{ "{:,.2f}".format(a.balance) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="2" style="text-align:right">NET →</th>
+          <th class="num {{ 'owed' if total_balance < 0 else '' }}">{{ "{:,.2f}".format(total_balance) }}</th>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No balance data</h3>
+      <p class="muted">Create invoices &amp; purchases to populate the balance view.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

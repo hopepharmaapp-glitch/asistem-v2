@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Deleted Archive — HopePharma{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>🗑️ Deleted Invoices Archive</h2>
+    <p class="muted">Soft-deleted invoices are kept here permanently by default. Their <strong>HPMT####</strong> number is released for re-use as soon as they're archived. <em>Use <strong>Permanent Erase</strong> only if legally required (GDPR/data retention) — it cannot be undone.</em></p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('index') }}">← Back to Active</a>
+</section>
+
+<section class="stats small">
+  <div class="stat-card muted">
+    <div class="stat-label">In Archive</div>
+    <div class="stat-value">{{ deleted|length }}</div>
+  </div>
+  <div class="stat-card muted">
+    <div class="stat-label">Total Archived Amount (AED)</div>
+    <div class="stat-value">{{ "{:,.2f}".format(deleted_total) }}</div>
+  </div>
+</section>
+
+<div class="card">
+  {% if deleted %}
+  <div class="table-wrap">
+    <table class="invoice-table archive">
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Client</th>
+          <th>Invoice Date</th>
+          <th class="num">Total (AED)</th>
+          <th>Deleted At</th>
+          <th>Deleted By</th>
+          <th class="actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in deleted %}
+          {% set t = inv.grand_total or 0 %}
+        <tr class="archived-row">
+          <td class="mono">{{ inv.invoice_id }}</td>
+          <td>{{ inv.client_name or "—" }}</td>
+          <td>{{ inv.date or "—" }}</td>
+          <td class="num">{{ "{:,.2f}".format(t) }}</td>
+          <td>{{ inv.deleted_at or "—" }}</td>
+          <td>{{ inv.deleted_by or "—" }}</td>
+          <td class="actions dual">
+            <form method="post" action="{{ url_for('restore_invoice', invoice_id=inv.invoice_id) }}" onsubmit="return confirm('Restore {{ inv.invoice_id }} to the Active Invoices list?');">
+              <button class="btn btn-ghost" type="submit">♻️ Restore</button>
+            </form>
+            <form method="post" action="{{ url_for('erase_invoice', invoice_id=inv.invoice_id) }}" onsubmit="return confirm('⚠️ PERMANENTLY ERASE {{ inv.invoice_id }}?\n\nThis cannot be undone. The HPMT number will immediately become free for the next new invoice.');">
+              <button class="btn btn-ghost danger" type="submit">⚠️ Erase Forever</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <h3>No archived invoices</h3>
+    <p class="muted">When you click 🗑 Archive on an active invoice, it will appear here.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ inv.invoice_id }} — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>🧾 Invoice {{ inv.invoice_id }}</h2>
+    <p class="muted">Client: <strong>{{ inv.client_name or '—' }}</strong> · Issued: {{ inv.date or '—' }} · Due: {{ inv.due_date or '—' }}</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-ghost" href="{{ url_for('invoices_list') }}">← Back</a>
+    <a class="btn btn-ghost" href="{{ url_for('invoice_edit_form', invoice_id=inv.invoice_id) }}">✏️ Edit</a>
+    <a class="btn btn-ghost" href="{{ url_for('invoice_pdf', invoice_id=inv.invoice_id) }}">📄 View PDF</a>
+    <a class="btn btn-primary" href="{{ url_for('invoice_download_pdf', invoice_id=inv.invoice_id) }}">⬇ Save PDF</a>
+  </div>
+</section>
+
+<div class="card invoice-detail {% if printable %}printable{% endif %}">
+  <div class="invoice-head">
+    <div>
+      <div class="invoice-brand">{{ active_company.display_name if active_company else 'ASISTEM' }}</div>
+      <div class="muted small">{{ active_company.address if active_company else '' }} · TRN: {{ active_company.trn if active_company else '' }}</div>
+    </div>
+    <div class="invoice-meta">
+      <div><span class="meta-key">Invoice #</span><span class="mono strong">{{ inv.invoice_id }}</span></div>
+      <div><span class="meta-key">Date</span>{{ inv.date or '—' }}</div>
+      <div><span class="meta-key">Due</span>{{ inv.due_date or '—' }}</div>
+      <div><span class="meta-key">Terms</span>{{ inv.payment_terms or 'Net 30' }}</div>
+      <div><span class="meta-key">Status</span><span class="status-chip {{ status_cls }}">{{ status }}</span></div>
+    </div>
+  </div>
+
+  <div class="bill-to">
+    <div class="bill-block">
+      <div class="meta-key">Bill To</div>
+      <div class="strong">{{ inv.client_name or '—' }}</div>
+      <div class="muted small">TRN: {{ inv.client_trn or '—' }} · {{ inv.client_emirate or '' }}</div>
+    </div>
+  </div>
+
+  <div class="table-wrap mt">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th style="width:50px">#</th>
+          <th>Description</th>
+          <th class="num">Qty</th>
+          <th class="num">Unit Price</th>
+          <th class="num">VAT %</th>
+          <th class="num">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set line_items = inv['items'] if inv and inv.get('items') else [] %}
+        {% for item in line_items %}
+        <tr>
+          <td class="num">{{ loop.index }}</td>
+          <td>{{ item.description }}</td>
+          <td class="num">{{ item.quantity }}</td>
+          <td class="num">{{ "{:,.2f}".format(item.unit_price or 0) }}</td>
+          <td class="num">{{ "{:.1f}".format(item.tax_rate or inv.tax_rate or 5) }}%</td>
+          <td class="num">{{ "{:,.2f}".format(item.amount or 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="invoice-totals">
+    <div class="totals-card wide">
+      <div class="totals-row"><span>Subtotal (excl. VAT)</span><strong>{{ "{:,.2f}".format(inv.subtotal or 0) }} AED</strong></div>
+      <div class="totals-row"><span>VAT ({{ inv.tax_rate or 5 }}%)</span><strong>{{ "{:,.2f}".format(inv.tax_amount or 0) }} AED</strong></div>
+      <div class="totals-row grand"><span>Grand Total</span><strong>{{ "{:,.2f}".format(inv.grand_total or 0) }} AED</strong></div>
+      <div class="totals-row"><span>Total Paid</span><strong>{{ "{:,.2f}".format(inv.total_paid or 0) }} AED</strong></div>
+      <div class="totals-row grand {{ 'owed-row' if balance > 0 else '' }}"><span>Balance Due</span><strong>{{ "{:,.2f}".format(balance) }} AED</strong></div>
+    </div>
+  </div>
+
+  {% if not printable %}
+  <div class="financial-breakdown">
+    <h3>📊 Financial Breakdown (Internal)</h3>
+    {% set inv_sub = (inv.subtotal or 0) | float %}
+    {% set inv_cogs = (inv.invoice_total_cost or inv.total_cost or 0) | float %}
+    {% set inv_gp = (inv.invoice_gross_profit or inv.profit_loss or (inv_sub - inv_cogs)) | float %}
+    {% set inv_gm = ((inv_gp / inv_sub * 100) if inv_sub > 0 else 0.0) | float %}
+    <div class="fin-row subtotal">
+      <span class="lab">Subtotal (Revenue)</span>
+      <span class="val">{{ "{:,.2f}".format(inv_sub) }} AED</span>
+    </div>
+    <div class="fin-row cogs">
+      <span class="lab">COGS / Direct Costs Total</span>
+      <span class="val">{{ "{:,.2f}".format(inv_cogs) }} AED</span>
+    </div>
+    <div class="fin-row gp {{ 'pos' if inv_gp >= 0 else 'neg' }}">
+      <span class="lab">Gross Profit $</span>
+      <span class="val">{{ "{:,.2f}".format(inv_gp) }} AED</span>
+    </div>
+    <div class="fin-row gm">
+      <span class="lab">Gross Margin %</span>
+      <span class="val">{{ "{:.2f}".format(inv_gm) }} %</span>
+    </div>
+    <div class="disclaimer">Computed server-side from product catalog cost records; do not rely on client fields.</div>
+  </div>
+  {% endif %}
+
+  {% if inv.notes %}
+  <div class="card muted-box mt">
+    <div class="meta-key">Notes</div>
+    <p class="muted small">{{ inv.notes }}</p>
+  </div>
+  {% endif %}
+</div>
+
+{% if not printable %}
+<section class="card mt">
+  <div class="section-title mb"><h3>💳 Payment History</h3></div>
+  {% if inv.payment_history %}
+    <div class="table-wrap"><table class="invoice-table compact">
+      <thead><tr><th>Date</th><th>Method</th><th class="num">Amount</th><th>Note</th></tr></thead>
+      <tbody>
+        {% for ph in inv.payment_history %}
+        <tr>
+          <td>{{ ph.date or '—' }}</td>
+          <td>{{ ph.method or '—' }}</td>
+          <td class="num">{{ "{:,.2f}".format(ph.amount or 0) }}</td>
+          <td>{{ ph.note or '' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table></div>
+  {% else %}
+    <p class="muted small">No payments recorded yet.</p>
+  {% endif %}
+</section>
+
+<section class="card mt">
+  <div class="section-title mb"><h3>⚙️ Actions</h3></div>
+  <div class="form-actions" style="justify-content:flex-start">
+    <a class="btn btn-ghost" href="{{ url_for('invoices_list') }}">← Back to list</a>
+    <a class="btn btn-ghost" href="{{ url_for('invoice_edit_form', invoice_id=inv.invoice_id) }}">✏️ Edit</a>
+    <a class="btn btn-primary" href="{{ url_for('invoice_pdf', invoice_id=inv.invoice_id) }}">📄 PDF / Print</a>
+    <form method="post" action="{{ url_for('delete_invoice', invoice_id=inv.invoice_id) }}" onsubmit="return confirm('Archive invoice {{ inv.invoice_id }}?');">
+      <button class="btn btn-ghost danger" type="submit">🗑 Move to Archive</button>
+    </form>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

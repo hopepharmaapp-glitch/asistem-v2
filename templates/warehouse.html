@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}🏬 Warehouse — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>🏬 Warehouse Management</h2>
+    <p class="muted">Locations, capacity, and recent stock transfers.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-ghost" href="{{ url_for('inventory_view') }}">📦 Inventory</a>
+    <a class="btn btn-ghost" href="{{ url_for('temperature_log_view') }}">🌡 QA Log</a>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Warehouses</div><div class="stat-value">{{ warehouses|length }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Capacity (slots)</div><div class="stat-value">{{ "{:,}".format(total_capacity) }}</div></div>
+</section>
+
+<section class="grid-cols-2">
+  <div class="card">
+    <div class="section-title mb"><h3>🏬 Locations</h3></div>
+    {% if warehouses %}
+      <div class="wh-list">
+        {% for w in warehouses %}
+        <div class="wh-card">
+          <div class="wh-head">
+            <div>
+              <strong>{{ w.name }}</strong>
+              <span class="muted small"> · {{ w.location or '—' }}</span>
+            </div>
+            <span class="cat-chip">{{ w.id }}</span>
+          </div>
+          <div class="util-bar">
+            <div class="util-fill" style="width:{{ w.utilization_pct|default(50) }}%"></div>
+          </div>
+          <div class="util-meta muted small">
+            <span>Utilization: {{ w.utilization_pct|default(0) }}%</span>
+            <span>Manager: {{ w.manager or '—' }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty"><h3>No warehouses</h3><p class="muted">Seed locations in the desktop warehouse module.</p></div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="section-title mb"><h3>🔄 Recent Stock Transfers</h3><p class="muted small">Last 10</p></div>
+    {% if recent_transfers %}
+      <div class="table-wrap"><table class="invoice-table compact">
+        <thead><tr><th>Date</th><th>From → To</th><th>Product</th><th class="num">Qty</th></tr></thead>
+        <tbody>
+          {% for t in recent_transfers %}
+          <tr>
+            <td>{{ t.date or t.created_at or '—' }}</td>
+            <td>{{ t.from_warehouse or t.source or '—' }} → {{ t.to_warehouse or t.dest or '—' }}</td>
+            <td>{{ t.product or t.sku or '—' }}</td>
+            <td class="num">{{ t.qty or t.quantity or 0 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table></div>
+    {% else %}
+      <p class="muted small">No recent transfers recorded.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

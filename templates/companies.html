@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Company Profiles — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>🏢 Company Profiles</h2>
+    <p class="muted"><strong>ASISTEM</strong> hosts multiple independent companies. <strong>{{ active.display_name if active else 'HopePharma Medical Trading' }}</strong> is currently selected — use the header dropdown to switch at any time.</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('index') }}">← Back to Invoices</a>
+</section>
+
+<section class="grid-cols-2">
+  <!-- Left: existing companies -->
+  <div class="card">
+    <div class="section-title mb"><h3>Existing Profiles</h3><p class="muted small">Total: {{ companies|length }}</p></div>
+    {% if companies %}
+    <div class="company-list">
+      {% for c in companies %}
+      <div class="company-card {% if active and c.id == active.id %}is-active{% endif %}">
+        <div class="company-header">
+          <div class="company-logo-pill">{{ (c.short_code or c.prefix or 'CO')[:4] }}</div>
+          <div class="grow">
+            <div class="co-name">
+              <strong>{{ c.display_name or c.name }}</strong>
+              {% if c.is_default %}<span class="default-pill" title="Default (seeded HopePharma) company">Default</span>{% endif %}
+              {% if active and c.id == active.id %}<span class="active-pill">● Active</span>{% endif %}
+            </div>
+            <div class="muted small">{{ c.emirate or '—' }} · Currency: {{ c.currency or 'AED' }} · VAT: {{ '%0.1f'|format(c.vat_rate or 5) }}%</div>
+          </div>
+        </div>
+        <div class="company-meta-grid muted small">
+          <div><span>Invoice prefix</span><strong>{{ c.prefix }}####</strong></div>
+          <div><span>Short code</span><strong>{{ c.short_code or '—' }}</strong></div>
+          <div><span>TRN</span><strong>{{ c.trn or '—' }}</strong></div>
+          <div><span>Email</span><strong>{{ c.email or '—' }}</strong></div>
+          <div class="full"><span>Address</span><strong>{{ c.address or '—' }}</strong></div>
+        </div>
+        <div class="company-actions">
+          {% if not (active and c.id == active.id) %}
+          <form method="post" action="{{ url_for('switch_company') }}">
+            <input type="hidden" name="company_id" value="{{ c.id }}" />
+            <button class="btn btn-ghost" type="submit">Switch to this company</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty"><h3>No profiles</h3><p class="muted">Create HopePharma by saving the form on the right.</p></div>
+    {% endif %}
+  </div>
+
+  <!-- Right: create new company form -->
+  <div class="card">
+    <div class="section-title mb"><h3>➕ Create New Company Profile</h3>
+    <p class="muted small">Creates a completely independent workspace with its own invoice numbering prefix (e.g., if the company is "Crescent Trading", invoices will be <strong>CRSC0001</strong>, <strong>CRSC0002</strong>, etc. — the numbering never clashes with HopePharma's HPMT####.)</p></div>
+    <form method="post" action="{{ url_for('create_company_post') }}" class="form-stack">
+      <div class="form-grid">
+        <div class="field"><label>Company Legal Name *</label><input name="name" required placeholder="HopePharma Medical Trading FZCO" /></div>
+        <div class="field"><label>Display Name</label><input name="display_name" placeholder="HopePharma Medical Trading" /></div>
+        <div class="field"><label>Invoice Prefix (4 letters, uppercase)</label>
+          <input name="prefix" maxlength="6" pattern="[A-Za-z0-9]{2,6}" placeholder="e.g. HPMT / CRSC / MEDX" />
+        </div>
+        <div class="field"><label>Short Code (max 4 chars)</label><input name="short_code" maxlength="4" placeholder="HPMT" /></div>
+        <div class="field"><label>UAE TRN</label><input name="trn" maxlength="15" placeholder="15-digit TRN" /></div>
+        <div class="field"><label>Default VAT %</label><input type="number" step="0.1" min="0" max="100" name="vat_rate" value="5" /></div>
+        <div class="field"><label>Currency</label><input name="currency" value="AED" /></div>
+        <div class="field"><label>Emirate</label>
+          <select name="emirate">
+            <option>Dubai</option><option>Abu Dhabi</option><option>Sharjah</option>
+            <option>Ajman</option><option>Umm Al Quwain</option><option>Ras Al Khaimah</option><option>Fujairah</option>
+          </select>
+        </div>
+        <div class="field full"><label>Company Address</label><input name="address" placeholder="Street, PO Box, City" /></div>
+        <div class="field"><label>Phone</label><input name="phone" placeholder="+971 ..." /></div>
+        <div class="field"><label>Email</label><input type="email" name="email" placeholder="info@company.ae" /></div>
+        <div class="field full"><label>Website</label><input name="website" placeholder="https://company.ae" /></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit">Save New Company &amp; Switch to It</button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

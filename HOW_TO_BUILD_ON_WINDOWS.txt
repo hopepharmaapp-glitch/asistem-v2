@@ -1,0 +1,27 @@
+================================================================================
+          HOPEPHARMA AUTO-UPDATER FOR WINDOWS
+================================================================================
+
+This folder now contains an AUTOMATIC BUILDER that updates the app whenever code changes.
+
+INSTRUCTIONS:
+
+1.  Copy the entire "HopePharmaData" folder to your Windows machine.
+
+2.  Double-click "start_auto_updates_windows.bat".
+    (Look for "Windows Batch File" if extension is hidden)
+
+3.  A black window will open. Leave it running in the background.
+
+4.  Whenever you save a file on your Mac (synced to Windows) or edit on Windows,
+    this tool will AUTOMATICALLY rebuild "HopePharma.exe".
+
+5.  The new app will appear in the "dist" folder within seconds.
+
+--------------------------------------------------------------------------------
+NOTE:
+- The very first time you run it, it might take a minute to install tools.
+- Do not close the black window if you want automatic updates.
+- If it closes immediately, try right-clicking and "Run as Administrator".
+
+================================================================================

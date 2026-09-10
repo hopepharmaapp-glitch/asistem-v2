@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}💼 Sales CRM — Quotations — ASISTEM{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h2>📝 Quotations / Pro-formas</h2>
+    <p class="muted">Pending quotes for active company. Convert quotes to invoices in the desktop app.</p>
+  </div>
+  <div class="hero-actions">
+    <a class="btn btn-ghost" href="{{ url_for('invoices_list') }}">💼 Invoices</a>
+    <a class="btn btn-ghost" href="{{ url_for('clients_view') }}">👤 Clients</a>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="stat-card"><div class="stat-label">Quotations</div><div class="stat-value">{{ count }}</div></div>
+  <div class="stat-card"><div class="stat-label">Total Pipeline (AED)</div><div class="stat-value">{{ "{:,.2f}".format(total_value) }}</div></div>
+</section>
+
+<div class="card">
+  {% if quotations %}
+  <div class="table-wrap">
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th>Quote #</th>
+          <th>Client</th>
+          <th>Date</th>
+          <th>Valid Until</th>
+          <th class="num">Total (AED)</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for q in quotations %}
+        <tr>
+          <td class="mono">{{ q.quote_id or q.id or 'QT#' ~ loop.index }}</td>
+          <td>{{ q.client_name or q.customer or '—' }}</td>
+          <td>{{ q.date or q.created_at or '—' }}</td>
+          <td>{{ q.valid_until or '—' }}</td>
+          <td class="num">{{ "{:,.2f}".format(q.grand_total or q.total or 0) }}</td>
+          <td>
+            {% set s = (q.status or 'Pending')|string %}
+            {% set cls = {
+              'Accepted':'status-paid', 'Converted':'status-paid', 'Sent':'status-partial',
+              'Pending':'status-pending', 'Rejected':'status-unpaid', 'Expired':'status-overdue'
+            }.get(s, 'status-pending') %}
+            <span class="status-chip {{ cls }}">{{ s }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      <h3>No quotations yet</h3>
+      <p class="muted">Create quotations in the desktop Quotation Manager module.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
